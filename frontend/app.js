@@ -330,9 +330,10 @@ function appendBubble(text, role) {
 
 // ─── CRISIS MODAL ─────────────────────────────────────────────────────────────
 function showCrisisModal() {
-  document.getElementById("crisis-modal").classList.remove("hidden");
+  const modal = document.getElementById("crisis-modal");
+  modal.style.display = "flex";
 }
 
 document.getElementById("btn-close-crisis").addEventListener("click", () => {
-  document.getElementById("crisis-modal").classList.add("hidden");
+  document.getElementById("crisis-modal").style.display = "none";
 });

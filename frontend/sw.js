@@ -1,4 +1,4 @@
-const CACHE = "mirror-v1";
+const CACHE = "mirror-v2";
 const ASSETS = ["/", "/app.js", "/styles.css"];
 
 self.addEventListener("install", e =>
