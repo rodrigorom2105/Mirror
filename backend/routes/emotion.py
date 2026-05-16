@@ -2,7 +2,6 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import tempfile, os
-from services.whisper_service import transcribe_audio
 from services.llm_service import extract_ruler
 from services.memory_service import save_entry
 from crisis_keywords import contains_crisis
@@ -32,6 +31,11 @@ async def entry(
         tmp.write(await audio.read())
         tmp_path = tmp.name
     try:
+        # Import diferido: el audio pipeline (services.audio_pipeline) se
+        # construye en la Task 6 del plan; importarlo aquí dentro evita
+        # romper `import main` mientras tanto.
+        from services.audio_pipeline import transcribe_audio
+
         transcription = transcribe_audio(tmp_path)
         full_text = f"Emoción seleccionada: {emocion_seleccionada}. {transcription['text']}"
         ruler = extract_ruler(full_text)
