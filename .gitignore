@@ -19,6 +19,9 @@ data/models/*.gguf
 # whisper.cpp compiled binary
 backend/whisper.cpp/
 
+# Claude Code
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
