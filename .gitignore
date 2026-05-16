@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+dist/
+build/
+
+# Env
+.env
+
+# Data (no commitear la DB ni los modelos)
+data/chroma_db/
+data/audio/
+data/models/*.bin
+data/models/*.gguf
+
+# whisper.cpp compiled binary
+backend/whisper.cpp/
+
+# OS
+.DS_Store
+Thumbs.db
