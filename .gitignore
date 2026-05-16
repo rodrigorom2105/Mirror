@@ -15,6 +15,10 @@ data/chroma_db/
 data/audio/
 data/models/*.bin
 data/models/*.gguf
+backend/data/chroma_db/
+backend/data/audio/
+backend/data/models/*.bin
+backend/data/models/*.gguf
 
 # whisper.cpp compiled binary
 backend/whisper.cpp/

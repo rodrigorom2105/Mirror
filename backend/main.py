@@ -1,9 +1,16 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from routes import audio, emotion, history, chat
 
-app = FastAPI(title="Mirror API")
+class UTF8JSONResponse(JSONResponse):
+    media_type = "application/json; charset=utf-8"
+
+app = FastAPI(title="Mirror API", default_response_class=UTF8JSONResponse)
 
 app.add_middleware(
     CORSMiddleware,
