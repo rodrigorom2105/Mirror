@@ -1,6 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from typing import Optional
 import tempfile, os
 from logging_config import get_logger
 from services.llm_service import extract_ruler

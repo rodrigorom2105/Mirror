@@ -39,16 +39,29 @@ def test_entry_analyzes_without_saving(monkeypatch):
 
 def test_save_persists_and_returns_id(monkeypatch):
     saved = {}
+    calls = {"update_profile": 0, "acompanamiento": 0}
 
     def fake_save(ruler):
         saved["ruler"] = ruler
         return (7, "2026-05-17T01:00:00")
     monkeypatch.setattr(emotion_route, "save_entry", fake_save)
-    monkeypatch.setattr(emotion_route, "_update_profile", lambda ruler, bg: None)
-    monkeypatch.setattr(emotion_route, "_acompanamiento_post_entry", lambda: None)
+
+    def fake_update_profile(ruler, bg):
+        calls["update_profile"] += 1
+    monkeypatch.setattr(emotion_route, "_update_profile", fake_update_profile)
+
+    def fake_acompanamiento():
+        calls["acompanamiento"] += 1
+        return None
+    monkeypatch.setattr(emotion_route, "_acompanamiento_post_entry", fake_acompanamiento)
 
     r = _client().post("/api/save",
                         json={"emocion_primaria": "tenso", "cuadrante": "rojo"})
     assert r.status_code == 200
-    assert r.json()["id"] == 7
+    body = r.json()
+    assert body["id"] == 7
     assert saved["ruler"]["emocion_primaria"] == "tenso"
+    assert calls["update_profile"] == 1, "_update_profile debe llamarse exactamente una vez"
+    assert calls["acompanamiento"] == 1, "_acompanamiento_post_entry debe llamarse exactamente una vez"
+    assert "acompanamiento" in body, "la respuesta debe incluir la clave 'acompanamiento'"
+    assert body["acompanamiento"] is None
