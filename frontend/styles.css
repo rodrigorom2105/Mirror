@@ -1,212 +1,324 @@
-/* Custom styles beyond Tailwind CDN */
+/* Custom styles beyond Tailwind CDN — mobile-first */
 
 :root {
   --red: #ef4444;
   --yellow: #eab308;
   --blue: #3b82f6;
   --green: #22c55e;
+  --bg: #090d16;
+  --tab-h: 68px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
 }
 
-/* ─── Base ─────────────────────────────────────────────────────────── */
+/* ─── Base ──────────────────────────────────────────────────────────── */
+
+* { 
+  box-sizing: border-box; 
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
 
 body {
-  background-color: #0f172a;
+  background-color: var(--bg);
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,0.18) 0%, transparent 60%);
+    radial-gradient(circle at 50% -20%, rgba(99,102,241,0.18) 0%, transparent 70%),
+    radial-gradient(circle at 0% 100%, rgba(59,130,246,0.04) 0%, transparent 40%);
   color: #f1f5f9;
-  font-family: 'Inter', system-ui, sans-serif;
-  overscroll-behavior: none;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overscroll-behavior-y: contain;
+  /* Remove 300ms tap delay on mobile */
+  touch-action: manipulation;
+  /* Remove blue flash on tap (iOS/Android) */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ─── Screen transitions ────────────────────────────────────────────── */
 
 .screen { display: none; }
+
 .screen.active {
   display: flex;
   flex-direction: column;
-  animation: fadeSlideIn 0.22s ease-out;
+  /* dvh = real viewport height on mobile (excludes browser chrome) */
+  min-height: 100dvh;
+  /* Reserve space for fixed tab bar + device home indicator */
+  padding-bottom: calc(var(--tab-h) + var(--safe-b) + 16px);
+  animation: fadeSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Chat manages its own height for the keyboard-aware input */
+#screen-chat.active {
+  height: 100dvh;
+  min-height: unset;
+  padding-bottom: 0;
 }
 
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: scale(0.98) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 /* ─── Branding ──────────────────────────────────────────────────────── */
 
 #screen-mood h1 {
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 40%, #c084fc 100%);
+  /* clamp: fluid size between 1.8rem and 2.6rem */
+  font-size: clamp(2rem, 8.5vw, 2.75rem);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  background: linear-gradient(135deg, #e0e7ff 0%, #6366f1 50%, #4338ca 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  line-height: 1.1;
 }
 
 #screen-mood > div:first-child p {
-  font-size: 0.95rem;
+  font-size: clamp(0.9rem, 3.5vw, 1.05rem);
   color: #94a3b8;
-  margin-top: 4px;
+  margin-top: 6px;
+  font-weight: 500;
 }
 
-/* ─── Mood Meter ────────────────────────────────────────────────────── */
+/* ─── Mood Meter — axis row fills remaining height ──────────────────── */
+
+/* 3rd child = the flex row containing [label | grid | label] */
+#screen-mood > div:nth-child(3) {
+  flex: 1;
+  min-height: 0; /* allows flex child to shrink properly */
+  align-items: center;
+}
+
+/* Axis labels: rotate to vertical so they take minimal width */
+.writing-vertical {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #475569;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+}
+
+/* Right axis label (no class) — also make vertical */
+#screen-mood .flex.items-center > span:last-of-type {
+  writing-mode: vertical-rl;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #475569;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* ─── Mood Meter grid ───────────────────────────────────────────────── */
 
 .mood-meter {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
+  /* Fill parent but stay square — use min so it never overflows */
+  width: 100%;
+  max-width: 350px;
   aspect-ratio: 1;
+  align-self: center;
+  min-height: 0;
+  margin: 0 auto;
 }
 
 .quadrant {
-  border-radius: 20px;
+  border-radius: 24px;
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(.34,1.56,.64,1), box-shadow 0.18s ease;
+  transition: transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s ease, filter 0.2s;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 16px 12px;
+  padding: 16px 8px;
   position: relative;
   overflow: hidden;
+  min-height: 0;
+  touch-action: manipulation;
 }
 
-/* Shine overlay */
+/* Shine overlay on each quadrant */
 .quadrant::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 60%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 60%);
   border-radius: inherit;
   pointer-events: none;
 }
 
-.quadrant:hover {
-  transform: scale(1.04);
-}
-.quadrant:active {
-  transform: scale(0.95);
-  opacity: 0.85;
-}
+.quadrant:active { transform: scale(0.93); filter: brightness(0.85); }
 
-.quadrant span:first-child {
-  font-size: 2.4rem;
+/* Emoji — fluid size */
+.quadrant > span:first-child {
+  font-size: clamp(2rem, 7.5vw, 3rem);
   line-height: 1;
   margin-bottom: 6px;
-  filter: drop-shadow(0 2px 6px currentColor);
+}
+
+/* Color label text */
+.quadrant > span:nth-child(2) {
+  font-size: clamp(0.8rem, 2.8vw, 0.95rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Descriptor text */
+.quadrant > span:nth-child(3) {
+  font-size: clamp(0.65rem, 2.2vw, 0.8rem);
+  font-weight: 500;
+  opacity: 0.7;
+  text-align: center;
+  margin-top: 3px;
 }
 
 .quadrant-red {
-  background: radial-gradient(ellipse at 30% 30%, rgba(239,68,68,0.45) 0%, rgba(239,68,68,0.18) 100%);
-  border: 1.5px solid rgba(239,68,68,0.55);
-  box-shadow: 0 0 24px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+  background: radial-gradient(circle at 35% 35%, rgba(239,68,68,0.35) 0%, rgba(239,68,68,0.1) 100%);
+  border: 1px solid rgba(239,68,68,0.4);
+  box-shadow: 0 8px 32px rgba(239,68,68,0.08);
 }
-.quadrant-red:hover {
-  box-shadow: 0 0 36px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
-}
+.quadrant-red > span:first-child { filter: drop-shadow(0 4px 12px rgba(239,68,68,0.4)); }
 
 .quadrant-yellow {
-  background: radial-gradient(ellipse at 70% 30%, rgba(234,179,8,0.45) 0%, rgba(234,179,8,0.18) 100%);
-  border: 1.5px solid rgba(234,179,8,0.55);
-  box-shadow: 0 0 24px rgba(234,179,8,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+  background: radial-gradient(circle at 65% 35%, rgba(234,179,8,0.35) 0%, rgba(234,179,8,0.1) 100%);
+  border: 1px solid rgba(234,179,8,0.4);
+  box-shadow: 0 8px 32px rgba(234,179,8,0.08);
 }
-.quadrant-yellow:hover {
-  box-shadow: 0 0 36px rgba(234,179,8,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
-}
+.quadrant-yellow > span:first-child { filter: drop-shadow(0 4px 12px rgba(234,179,8,0.4)); }
 
 .quadrant-blue {
-  background: radial-gradient(ellipse at 30% 70%, rgba(59,130,246,0.45) 0%, rgba(59,130,246,0.18) 100%);
-  border: 1.5px solid rgba(59,130,246,0.55);
-  box-shadow: 0 0 24px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+  background: radial-gradient(circle at 35% 75%, rgba(59,130,246,0.35) 0%, rgba(59,130,246,0.1) 100%);
+  border: 1px solid rgba(59,130,246,0.4);
+  box-shadow: 0 8px 32px rgba(59,130,246,0.08);
 }
-.quadrant-blue:hover {
-  box-shadow: 0 0 36px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
-}
+.quadrant-blue > span:first-child { filter: drop-shadow(0 4px 12px rgba(59,130,246,0.4)); }
 
 .quadrant-green {
-  background: radial-gradient(ellipse at 70% 70%, rgba(34,197,94,0.45) 0%, rgba(34,197,94,0.18) 100%);
-  border: 1.5px solid rgba(34,197,94,0.55);
-  box-shadow: 0 0 24px rgba(34,197,94,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+  background: radial-gradient(circle at 65% 75%, rgba(34,197,94,0.35) 0%, rgba(34,197,94,0.1) 100%);
+  border: 1px solid rgba(34,197,94,0.4);
+  box-shadow: 0 8px 32px rgba(34,197,94,0.08);
 }
-.quadrant-green:hover {
-  box-shadow: 0 0 36px rgba(34,197,94,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
-}
+.quadrant-green > span:first-child { filter: drop-shadow(0 4px 12px rgba(34,197,94,0.4)); }
 
 /* ─── Record button ─────────────────────────────────────────────────── */
 
 .record-btn {
-  width: 88px; height: 88px;
+  width: 90px; height: 90px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #818cf8, #6366f1);
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
   border: none;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: transform 0.15s cubic-bezier(.34,1.56,.64,1), background 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s cubic-bezier(.34,1.56,.64,1);
   user-select: none;
   -webkit-user-select: none;
-  box-shadow: 0 0 0 0 rgba(99,102,241,0.5), 0 4px 20px rgba(99,102,241,0.4);
+  /* Prevents interference with hold gesture */
+  touch-action: none;
+  box-shadow: 0 10px 30px rgba(99,102,241,0.4);
   position: relative;
+  flex-shrink: 0;
 }
 
-.record-btn::after {
+/* Outer ring decoration */
+.record-btn::before {
   content: '';
   position: absolute;
-  inset: -4px;
+  inset: -8px;
   border-radius: 50%;
-  border: 2px solid rgba(99,102,241,0.4);
-  opacity: 0;
-  transition: opacity 0.2s;
+  border: 1.5px solid rgba(99,102,241,0.25);
+  pointer-events: none;
 }
 
-.record-btn:hover::after { opacity: 1; }
+.record-btn:active { transform: scale(0.92); }
 
 .record-btn.recording {
-  background: linear-gradient(135deg, #f87171, #ef4444);
+  background: linear-gradient(135deg, #ef4444, #dc2626);
   transform: scale(1.1);
-  box-shadow: 0 0 0 8px rgba(239,68,68,0.15), 0 4px 24px rgba(239,68,68,0.5);
-  animation: pulse-ring 1.4s ease-out infinite;
+  box-shadow: 0 0 0 14px rgba(239,68,68,0.15), 0 12px 35px rgba(239,68,68,0.5);
+  animation: pulse-ring 1.5s infinite;
+}
+
+.record-btn.recording::before {
+  border-color: rgba(239,68,68,0.3);
 }
 
 @keyframes pulse-ring {
-  0%   { box-shadow: 0 0 0 0   rgba(239,68,68,0.5), 0 4px 24px rgba(239,68,68,0.4); }
-  60%  { box-shadow: 0 0 0 18px rgba(239,68,68,0),   0 4px 24px rgba(239,68,68,0.3); }
-  100% { box-shadow: 0 0 0 18px rgba(239,68,68,0),   0 4px 24px rgba(239,68,68,0.3); }
+  0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3), 0 12px 35px rgba(239,68,68,0.5); }
+  70% { box-shadow: 0 0 0 16px rgba(239,68,68,0), 0 12px 35px rgba(239,68,68,0.5); }
+  100% { box-shadow: 0 0 0 0 rgba(239,68,68,0), 0 12px 35px rgba(239,68,68,0.5); }
 }
 
 /* ─── Waveform ──────────────────────────────────────────────────────── */
 
 #waveform {
   width: 100%;
-  height: 56px;
-  border-radius: 14px;
+  height: 64px;
+  border-radius: 16px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.07);
 }
 
-/* ─── Emotion word chips ────────────────────────────────────────────── */
+/* ─── Back buttons — bigger touch target ────────────────────────────── */
+
+#btn-back-words,
+#btn-back-record {
+  min-height: 44px;
+  min-width: 85px;
+  padding: 8px 4px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  touch-action: manipulation;
+}
+
+/* ─── Emotion chips ─────────────────────────────────────────────────── */
 
 .emotion-chip {
   padding: 10px 20px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
   font-weight: 500;
+  /* Minimum touch target size (Apple HIG / Material) */
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  touch-action: manipulation;
 }
-.emotion-chip:hover {
-  background: rgba(255,255,255,0.14);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
+.emotion-chip:active { transform: scale(0.95); background: rgba(255,255,255,0.12); }
 .emotion-chip.selected {
-  background: linear-gradient(135deg, #818cf8, #6366f1);
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
   border-color: transparent;
-  box-shadow: 0 4px 16px rgba(99,102,241,0.4);
-  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(99,102,241,0.35);
+}
+
+/* ─── Scrollable screens ────────────────────────────────────────────── */
+
+#screen-words,
+#screen-history,
+#screen-patterns,
+#screen-confirm {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ─── Tab bar ───────────────────────────────────────────────────────── */
@@ -214,12 +326,14 @@ body {
 #tab-bar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  background: rgba(10,16,35,0.92);
+  /* Account for device home indicator */
+  height: calc(var(--tab-h) + var(--safe-b));
+  padding-bottom: var(--safe-b);
+  background: rgba(13, 17, 30, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid rgba(255,255,255,0.06);
   display: flex;
-  height: 64px;
   z-index: 100;
 }
 
@@ -227,94 +341,86 @@ body {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-size: 0.65rem;
-  color: #475569;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #64748b;
   cursor: pointer;
-  transition: color 0.18s ease, transform 0.18s ease;
+  transition: color 0.2s ease;
   background: none; border: none;
-  gap: 2px;
+  gap: 4px;
   position: relative;
+  touch-action: manipulation;
+  padding: 6px 0;
 }
 
-.tab-btn span:first-child {
-  font-size: 1.3rem;
-  line-height: 1;
-  transition: transform 0.18s cubic-bezier(.34,1.56,.64,1);
+.tab-btn svg {
+  width: 22px; height: 22px;
+  stroke-width: 1.75;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  flex-shrink: 0;
 }
 
 .tab-btn.active {
   color: #818cf8;
 }
-
-.tab-btn.active span:first-child {
-  transform: scale(1.15) translateY(-1px);
+.tab-btn.active svg {
+  transform: scale(1.18) translateY(-2px);
 }
 
 /* Active indicator dot */
 .tab-btn.active::after {
   content: '';
   position: absolute;
-  bottom: 6px;
+  bottom: calc(var(--safe-b) + 5px);
   width: 4px; height: 4px;
   border-radius: 50%;
   background: #6366f1;
-  box-shadow: 0 0 6px rgba(99,102,241,0.8);
+  box-shadow: 0 0 8px rgba(99,102,241,0.9);
 }
 
 /* ─── Entry cards ───────────────────────────────────────────────────── */
 
 .entry-card {
-  border-radius: 16px;
+  border-radius: 20px;
   padding: 16px;
   margin-bottom: 12px;
-  background: rgba(255,255,255,0.04);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-left: 4px solid;
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-left: 5px solid;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
+.entry-card:active { transform: scale(0.99); }
 
-.entry-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-}
-
-.entry-card.rojo {
-  border-color: var(--red);
-  box-shadow: -2px 0 12px rgba(239,68,68,0.1);
-}
-.entry-card.amarillo {
-  border-color: var(--yellow);
-  box-shadow: -2px 0 12px rgba(234,179,8,0.1);
-}
-.entry-card.azul {
-  border-color: var(--blue);
-  box-shadow: -2px 0 12px rgba(59,130,246,0.1);
-}
-.entry-card.verde {
-  border-color: var(--green);
-  box-shadow: -2px 0 12px rgba(34,197,94,0.1);
-}
+.entry-card.rojo     { border-color: var(--red);    box-shadow: -2px 0 14px rgba(239,68,68,0.08); }
+.entry-card.amarillo { border-color: var(--yellow);  box-shadow: -2px 0 14px rgba(234,179,8,0.08); }
+.entry-card.azul     { border-color: var(--blue);   box-shadow: -2px 0 14px rgba(59,130,246,0.08); }
+.entry-card.verde    { border-color: var(--green);  box-shadow: -2px 0 14px rgba(34,197,94,0.08); }
 
 /* ─── Chat bubbles ──────────────────────────────────────────────────── */
 
 .bubble-user {
-  background: linear-gradient(135deg, #818cf8, #6366f1);
-  border-radius: 18px 18px 4px 18px;
-  box-shadow: 0 2px 12px rgba(99,102,241,0.3);
+  background: #4f46e5;
+  border-radius: 20px 20px 4px 20px;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.2);
+}
+.bubble-ai {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px 20px 20px 4px;
 }
 
-.bubble-ai {
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 18px 18px 18px 4px;
+/* Prevent iOS auto-zoom on input focus (font-size must be >= 16px) */
+#chat-input {
+  font-size: 1rem !important;
 }
 
 /* ─── Crisis modal ──────────────────────────────────────────────────── */
 
 #crisis-modal {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(15,10,10,0.75);
+  background: rgba(3, 7, 18, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   align-items: center; justify-content: center;
@@ -330,12 +436,21 @@ body {
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
-
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ─── Intensity bar segments (confirm screen) ───────────────────────── */
-/* App renders 10 individual divs with bg-indigo-500; tint them with color */
+
 #ruler-display .bg-indigo-500 {
-  background: linear-gradient(90deg, #22c55e, #eab308 60%, #ef4444) !important;
-  opacity: 1;
+  background: linear-gradient(90deg, #22c55e, #eab308 55%, #ef4444) !important;
+}
+
+/* ─── Utility: headings on secondary screens ────────────────────────── */
+
+#screen-words h2,
+#screen-confirm h2,
+#screen-history h2,
+#screen-patterns h2 {
+  font-size: clamp(1.2rem, 5.5vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
