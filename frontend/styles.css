@@ -16,8 +16,9 @@
   --tab-h: 68px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
+  /* Curvas: soft = entradas suaves; spring = rebote orgánico; out = salidas rápidas */
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
 }
 
 /* ─── Base ──────────────────────────────────────────────────────────── */
@@ -77,7 +78,7 @@ body {
   flex-direction: column;
   min-height: 100dvh;
   padding: calc(var(--safe-t) + 22px) 20px calc(var(--tab-h) + var(--safe-b) + 22px);
-  animation: screenIn 0.36s var(--ease-soft);
+  animation: screenIn 0.42s var(--ease-soft) both;
 }
 
 #screen-chat.active {
@@ -87,9 +88,89 @@ body {
 }
 
 @keyframes screenIn {
-  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  from { opacity: 0; transform: translateY(16px) scale(0.99); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ─── Mira — la mascota ─────────────────────────────────────────────────
+   Capas anidadas: cada una anima UNA sola transform a un ritmo distinto,
+   así se componen sin pisarse y el movimiento nunca se siente mecánico.
+   .mira       → entrada (una vez, al aparecer la pantalla)
+   .mira-anim  → flotación vertical
+   .mira-tilt  → inclinación / balanceo
+   .mira-face  → respiración (escala) + ancla de los párpados
+   Todo se anima con transform/opacity → 60fps en GPU.                    */
+
+.mira {
+  position: relative;
+  flex-shrink: 0;
+  animation: miraEnter 0.72s var(--ease-spring) both;
+  will-change: transform;
+}
+.mira-sm      { width: 66px;  height: 66px; }
+.mira-lg      { width: 172px; height: 172px; }
+.mira-confirm { width: 56px;  height: 56px; }
+
+.mira-anim, .mira-tilt, .mira-face {
+  width: 100%;
+  height: 100%;
+}
+.mira-anim { animation: miraFloat 3.6s ease-in-out infinite; will-change: transform; }
+.mira-tilt { animation: miraTilt 5.2s ease-in-out infinite; will-change: transform; }
+.mira-face {
+  animation: miraFaceIdle 4.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+.mira-body {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 6px 16px rgba(129, 140, 248, 0.45));
+}
+.mira-lg .mira-body { filter: drop-shadow(0 0 28px rgba(129, 140, 248, 0.6)); }
+
+/* Placeholder si aún no existe el asset de la mascota */
+.mira-body.img-missing {
+  font-size: 0;
+  color: transparent;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, #a5b4fc 0%, #6366f1 55%, #4338ca 100%);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.45);
+}
+
+@keyframes miraEnter {
+  0%   { opacity: 0; transform: scale(0.45) translateY(14px); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes miraFloat {
+  0%   { transform: translateY(0); }
+  50%  { transform: translateY(-8px); }
+  72%  { transform: translateY(-1.5px); }   /* micro-rebote al asentarse */
+  86%  { transform: translateY(-3.5px); }
+  100% { transform: translateY(0); }
+}
+@keyframes miraTilt {
+  0%, 100% { transform: rotate(-2.6deg); }
+  50%      { transform: rotate(2.6deg); }
+}
+/* Respiración + un "pestañeo" por squash: el squash rápido (44-48%) lee como
+   parpadeo sin necesitar los ojos en una capa aparte. Todo scale → GPU/60fps. */
+@keyframes miraFaceIdle {
+  0%   { transform: scale(1, 1); }
+  24%  { transform: scale(1.03, 1.04); }
+  44%  { transform: scale(1, 1); }
+  46%  { transform: scale(1.045, 0.88); }
+  48%  { transform: scale(1, 1); }
+  72%  { transform: scale(1.03, 1.04); }
+  100% { transform: scale(1, 1); }
+}
+
+/* Mira "pensando" en la pantalla de análisis: flota un poco más animada */
+.mira-think .mira-anim { animation-duration: 2.5s; }
+.mira-think .mira-tilt { animation-duration: 3.6s; }
 
 /* ─── REGISTRAR · cabecera + mood meter ─────────────────────────────── */
 
@@ -97,33 +178,10 @@ body {
   text-align: center;
   padding-top: 4px;
 }
-
-.mascota {
-  display: block;
-  width: 56px;
-  height: 56px;
-  object-fit: contain;
-  margin: 0 auto;
-  -webkit-user-drag: none;
-  filter: drop-shadow(0 4px 14px rgba(129, 140, 248, 0.5));
-}
-/* Placeholder si aún no existe el asset de la mascota */
-.mascota.img-missing {
-  font-size: 0;
-  color: transparent;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 30%, #a5b4fc 0%, #6366f1 55%, #4338ca 100%);
-  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.45);
-}
-.mascota-sm { width: 56px; height: 56px; }
-.mascota-lg {
-  width: 148px;
-  height: 148px;
-  filter: drop-shadow(0 0 24px rgba(129, 140, 248, 0.6));
-}
+.mood-header .mira { margin: 0 auto 2px; }
 
 #screen-mood h1 {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: clamp(2rem, 8.5vw, 2.75rem);
   font-weight: 900;
   letter-spacing: -0.05em;
@@ -207,7 +265,7 @@ body {
   overflow: hidden;
   min-height: 0;
   touch-action: manipulation;
-  transition: transform 0.2s var(--ease-spring), box-shadow 0.2s ease, filter 0.2s ease;
+  transition: transform 0.22s var(--ease-spring), box-shadow 0.22s ease, filter 0.2s ease;
 }
 
 .quadrant::before {
@@ -220,6 +278,17 @@ body {
 }
 
 .quadrant:active { transform: scale(0.93); filter: brightness(0.88); }
+/* En dispositivos con puntero (desktop): leve realce al pasar por encima */
+@media (hover: hover) {
+  .quadrant:hover { transform: translateY(-3px); }
+}
+/* Microfeedback al elegir un cuadrante: un pulso breve antes de avanzar */
+.quadrant.picked { animation: quadrantPick 0.32s var(--ease-spring); }
+@keyframes quadrantPick {
+  0%   { transform: scale(0.93); }
+  55%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
 
 .q-emoji {
   font-size: clamp(2rem, 7.5vw, 3rem);
@@ -284,8 +353,9 @@ body {
   align-items: center;
   gap: 4px;
   touch-action: manipulation;
+  transition: color 0.18s ease, transform 0.18s var(--ease-spring);
 }
-.back-btn:active { color: #fff; }
+.back-btn:active { color: #fff; transform: scale(0.96); }
 
 .btn-primary {
   width: 100%;
@@ -312,9 +382,9 @@ body {
   font-size: 0.92rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.18s ease;
+  transition: background 0.18s ease, transform 0.18s var(--ease-spring);
 }
-.btn-ghost:active { background: var(--surface-2); }
+.btn-ghost:active { background: var(--surface-2); transform: scale(0.98); }
 
 /* ─── Pantalla de palabras ──────────────────────────────────────────── */
 
@@ -351,7 +421,7 @@ body {
   display: inline-flex;
   align-items: center;
   touch-action: manipulation;
-  transition: transform 0.18s var(--ease-spring), background 0.18s ease;
+  transition: transform 0.18s var(--ease-spring), background 0.18s ease, box-shadow 0.18s ease;
 }
 .emotion-chip-sm { padding: 7px 14px; min-height: 0; font-size: 0.8rem; }
 .emotion-chip:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.13); }
@@ -360,6 +430,21 @@ body {
   border-color: transparent;
   color: #fff;
   box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+}
+
+/* Entrada escalonada de los chips al abrir la pantalla de palabras */
+#words-grid .emotion-chip { animation: chipIn 0.4s var(--ease-soft) both; }
+#words-grid .emotion-chip:nth-child(1) { animation-delay: 0.04s; }
+#words-grid .emotion-chip:nth-child(2) { animation-delay: 0.08s; }
+#words-grid .emotion-chip:nth-child(3) { animation-delay: 0.12s; }
+#words-grid .emotion-chip:nth-child(4) { animation-delay: 0.16s; }
+#words-grid .emotion-chip:nth-child(5) { animation-delay: 0.20s; }
+#words-grid .emotion-chip:nth-child(6) { animation-delay: 0.24s; }
+#words-grid .emotion-chip:nth-child(7) { animation-delay: 0.28s; }
+#words-grid .emotion-chip:nth-child(8) { animation-delay: 0.32s; }
+@keyframes chipIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ─── Pantalla de grabación ─────────────────────────────────────────── */
@@ -411,6 +496,7 @@ body {
   box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
   transition: transform 0.2s var(--ease-spring), background 0.25s ease;
 }
+/* Anillo decorativo — al grabar pulsa con scale/opacity (GPU), no box-shadow */
 .record-btn::before {
   content: '';
   position: absolute;
@@ -424,15 +510,16 @@ body {
 .record-btn.recording {
   background: linear-gradient(135deg, #ef4444, #dc2626);
   transform: scale(1.08);
-  box-shadow: 0 0 0 14px rgba(239, 68, 68, 0.13), 0 12px 35px rgba(239, 68, 68, 0.5);
-  animation: pulse-ring 1.5s infinite;
+  box-shadow: 0 12px 35px rgba(239, 68, 68, 0.5);
 }
-.record-btn.recording::before { border-color: rgba(239, 68, 68, 0.3); }
-
-@keyframes pulse-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3), 0 12px 35px rgba(239, 68, 68, 0.5); }
-  70%  { box-shadow: 0 0 0 16px rgba(239, 68, 68, 0), 0 12px 35px rgba(239, 68, 68, 0.5); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0), 0 12px 35px rgba(239, 68, 68, 0.5); }
+.record-btn.recording::before {
+  border-color: rgba(239, 68, 68, 0.45);
+  animation: recPulse 1.5s ease-out infinite;
+}
+@keyframes recPulse {
+  0%   { transform: scale(1);   opacity: 0.9; }
+  70%  { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
 }
 
 .record-status {
@@ -442,6 +529,7 @@ body {
   margin: 0;
   text-align: center;
   min-height: 1.2em;
+  transition: color 0.2s ease;
 }
 
 /* ─── Pantalla de análisis (mascota) ────────────────────────────────── */
@@ -463,17 +551,17 @@ body {
 
 .mascota-orb {
   position: relative;
-  width: 200px;
-  height: 200px;
+  width: 216px;
+  height: 216px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 .mascota-orb::before {
   content: '';
   position: absolute;
-  inset: 18px;
+  inset: 14px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(129, 140, 248, 0.45) 0%, transparent 70%);
   animation: glowPulse 2.6s var(--ease-soft) infinite;
@@ -487,15 +575,16 @@ body {
   background: #c7d2fe;
   box-shadow: 0 0 12px 2px rgba(199, 210, 254, 0.9);
 }
-.spark-1 { top: 14px; left: 38px; animation: sparkle 2.4s ease-in-out infinite; }
-.spark-2 { bottom: 26px; right: 30px; width: 7px; height: 7px; animation: sparkle 2.4s ease-in-out infinite 0.8s; }
-.spark-3 { top: 70px; right: 14px; width: 6px; height: 6px; animation: sparkle 2.4s ease-in-out infinite 1.5s; }
+.spark-1 { top: 16px; left: 40px;    animation: sparkle 2.4s ease-in-out infinite; }
+.spark-2 { bottom: 28px; right: 32px; width: 7px; height: 7px; animation: sparkle 2.4s ease-in-out infinite 0.8s; }
+.spark-3 { top: 76px; right: 14px;   width: 6px; height: 6px; animation: sparkle 2.4s ease-in-out infinite 1.5s; }
 
 .analyzing-status {
   color: var(--text-dim);
   font-size: 0.95rem;
   margin: 4px 0 0;
   min-height: 1.3em;
+  animation: statusFade 0.4s var(--ease-soft);
 }
 
 .analyzing-actions {
@@ -515,15 +604,9 @@ body {
   0%, 100% { transform: scale(0.4); opacity: 0; }
   50%      { transform: scale(1); opacity: 1; }
 }
-
-/* ─── Mascota: animaciones de estado ────────────────────────────────── */
-
-.mascota-float { animation: floaty 4s ease-in-out infinite; }
-.mascota-think { animation: floaty 2.4s ease-in-out infinite; position: relative; z-index: 1; }
-
-@keyframes floaty {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-7px); }
+@keyframes statusFade {
+  from { opacity: 0.3; }
+  to   { opacity: 1; }
 }
 
 /* ─── Pantalla de confirmación ──────────────────────────────────────── */
@@ -536,7 +619,7 @@ body {
   gap: 12px;
   margin-bottom: 16px;
 }
-.confirm-header .mascota { margin: 0; width: 48px; height: 48px; }
+.confirm-header .mira { margin: 0; }
 .confirm-header h2 { margin: 0; }
 
 .transcription-box {
@@ -578,6 +661,24 @@ body {
 /* Barra de intensidad — degradado verde→amarillo→rojo en los segmentos activos */
 #ruler-display .bg-indigo-500 {
   background: linear-gradient(90deg, #22c55e, #eab308 55%, #ef4444) !important;
+}
+
+/* Entrada escalonada de las tarjetas (resumen RULER e historial) */
+.ruler-display .info-card,
+.scroll-list .entry-card { animation: cardIn 0.42s var(--ease-soft) both; }
+.ruler-display .info-card:nth-child(1),
+.scroll-list .entry-card:nth-child(1) { animation-delay: 0.04s; }
+.ruler-display .info-card:nth-child(2),
+.scroll-list .entry-card:nth-child(2) { animation-delay: 0.10s; }
+.ruler-display .info-card:nth-child(3),
+.scroll-list .entry-card:nth-child(3) { animation-delay: 0.16s; }
+.ruler-display .info-card:nth-child(4),
+.scroll-list .entry-card:nth-child(4) { animation-delay: 0.22s; }
+.ruler-display .info-card:nth-child(5),
+.scroll-list .entry-card:nth-child(5) { animation-delay: 0.28s; }
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ─── Listas con scroll (historial / patrones) ──────────────────────── */
@@ -645,6 +746,7 @@ body {
   font-size: 0.9rem;
   line-height: 1.45;
   color: #fff;
+  animation: bubbleIn 0.32s var(--ease-spring) both;
 }
 .bubble-user {
   background: #4f46e5;
@@ -657,6 +759,10 @@ body {
   border-radius: 18px 18px 18px 4px;
 }
 .bubble-thinking { color: var(--text-dim); letter-spacing: 0.15em; }
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 .chat-input-row {
   display: flex;
@@ -734,8 +840,9 @@ body {
   width: 22px; height: 22px;
   stroke-width: 1.75;
   flex-shrink: 0;
-  transition: transform 0.2s var(--ease-spring);
+  transition: transform 0.24s var(--ease-spring);
 }
+.tab-btn:active svg { transform: scale(0.86); }
 .tab-btn.active { color: var(--indigo-light); }
 .tab-btn.active svg { transform: scale(1.18) translateY(-2px); }
 .tab-btn.active::after {
@@ -746,6 +853,11 @@ body {
   border-radius: 50%;
   background: var(--indigo);
   box-shadow: 0 0 8px rgba(99, 102, 241, 0.9);
+  animation: dotIn 0.3s var(--ease-spring);
+}
+@keyframes dotIn {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
 }
 
 /* ─── Modal de crisis ───────────────────────────────────────────────── */
@@ -764,7 +876,10 @@ body {
 }
 #crisis-modal.visible {
   display: flex;
-  animation: screenIn 0.25s ease-out;
+  animation: modalFade 0.28s ease-out;
+}
+#crisis-modal.visible .crisis-card {
+  animation: modalCard 0.4s var(--ease-spring) both;
 }
 
 .crisis-card {
@@ -805,8 +920,9 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   text-decoration: none;
+  transition: background 0.18s ease, transform 0.18s var(--ease-spring);
 }
-.crisis-line:active { background: var(--surface-2); }
+.crisis-line:active { background: var(--surface-2); transform: scale(0.98); }
 .crisis-icon {
   width: 42px; height: 42px;
   flex-shrink: 0;
@@ -822,6 +938,15 @@ body {
 .crisis-line-name { color: #fff; font-weight: 600; font-size: 0.92rem; }
 .crisis-line-meta { color: #f87171; font-size: 0.76rem; margin-top: 2px; }
 
+@keyframes modalFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modalCard {
+  from { opacity: 0; transform: scale(0.9) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 /* ─── Spinner ───────────────────────────────────────────────────────── */
 
 .spinner {
@@ -832,6 +957,78 @@ body {
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Acompañamiento de Mira ────────────────────────────────────────── */
+
+#companion-card { margin-bottom: 22px; }
+
+.companion-bubble {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16),
+              rgba(129, 140, 248, 0.07));
+  border: 1px solid rgba(129, 140, 248, 0.28);
+  animation: cardIn 0.45s var(--ease-soft) both;
+}
+.companion-mira {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 9px rgba(129, 140, 248, 0.5));
+}
+.companion-mira.img-missing {
+  border-radius: 50%;
+  font-size: 0;
+  background: radial-gradient(circle at 38% 30%, #a5b4fc, #6366f1 60%, #4338ca);
+}
+.companion-bubble p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #e8eaf6;
+}
+
+/* Variante del inicio: descartable */
+.companion-home {
+  margin-top: 4px;
+  align-items: center;
+  position: relative;
+}
+.companion-home p { padding-right: 20px; }
+.companion-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.companion-close:active { background: rgba(255, 255, 255, 0.1); }
+
+.insight-line {
+  font-size: 0.88rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+  margin: 0 0 6px;
+  padding-left: 14px;
+  position: relative;
+}
+.insight-line::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--indigo-light);
+}
+.insight-line:last-child { margin-bottom: 0; }
 
 /* ─── Movimiento reducido (accesibilidad) ───────────────────────────── */
 

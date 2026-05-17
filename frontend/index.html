@@ -17,10 +17,16 @@
   <!-- ─── REGISTRAR · Mood Meter ─────────────────────────────────────────── -->
   <div id="screen-mood" class="screen active">
     <header class="mood-header">
-      <img src="/assets/mira.png" alt="" onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" class="mascota mascota-sm mascota-float" />
+      <div class="mira mira-sm" aria-hidden="true">
+        <div class="mira-anim"><div class="mira-tilt"><div class="mira-face">
+          <img class="mira-body" src="/assets/mira.png" alt=""
+            onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />        </div></div></div>
+      </div>
       <h1 data-screen-title>Mirror</h1>
       <p class="tagline">¿Cómo te sientes ahora?</p>
     </header>
+
+    <div id="home-companion" class="hidden"></div>
 
     <section class="mood-section">
       <p class="axis-label axis-h">Alta energía ↑</p>
@@ -86,7 +92,11 @@
         <span class="orb-spark spark-1" aria-hidden="true"></span>
         <span class="orb-spark spark-2" aria-hidden="true"></span>
         <span class="orb-spark spark-3" aria-hidden="true"></span>
-        <img src="/assets/mira.png" alt="" onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" class="mascota mascota-lg mascota-think" />
+        <div class="mira mira-lg" aria-hidden="true">
+          <div class="mira-anim"><div class="mira-tilt"><div class="mira-face">
+            <img class="mira-body" src="/assets/mira.png" alt=""
+              onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />          </div></div></div>
+        </div>
       </div>
       <h2 data-screen-title class="analyzing-title">Mira está reflexionando</h2>
       <p id="analyzing-status" class="analyzing-status" aria-live="polite">Escuchando lo que compartiste…</p>
@@ -106,11 +116,16 @@
   <div id="screen-confirm" class="screen">
     <div class="confirm-body">
       <div class="confirm-header">
-        <img src="/assets/mira.png" alt="" onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" class="mascota mascota-sm" />
+        <div class="mira mira-confirm" aria-hidden="true">
+          <div class="mira-anim"><div class="mira-tilt"><div class="mira-face">
+            <img class="mira-body" src="/assets/mira.png" alt=""
+              onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />          </div></div></div>
+        </div>
         <h2 data-screen-title>Esto es lo que entendí</h2>
       </div>
       <div id="transcription-box" class="transcription-box hidden"></div>
       <div id="ruler-display" class="ruler-display"></div>
+      <div id="companion-card" class="hidden"></div>
     </div>
     <button id="btn-confirm-done" class="btn-primary" type="button">Listo</button>
   </div>

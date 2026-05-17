@@ -41,7 +41,12 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 document.querySelectorAll(".quadrant").forEach(q => {
   q.addEventListener("click", () => {
     state.selectedQuadrant = q.dataset.q;
-    showWordScreen(q.dataset.q);
+    // Microfeedback: un pulso breve antes de avanzar a las palabras.
+    q.classList.add("picked");
+    setTimeout(() => {
+      q.classList.remove("picked");
+      showWordScreen(q.dataset.q);
+    }, 240);
   });
 });
 
@@ -283,6 +288,7 @@ async function analyzeEntry(blob) {
       box.classList.add("hidden");
     }
     renderRulerDisplay(data);
+    renderAcompanamiento(data.acompanamiento);
     showScreen("confirm");
   } catch (err) {
     stopAnalyzingCopy();
@@ -351,6 +357,54 @@ function renderRulerDisplay(ruler) {
     </div>
     ${ruler.pensamientos?.length ? `<div class="info-card"><p class="info-label mb-2">Pensamientos</p>${ruler.pensamientos.map(t=>`<p class="text-sm text-slate-300">• ${t}</p>`).join("")}</div>` : ""}
   `;
+}
+
+// ─── ACOMPAÑAMIENTO DE MIRA ───────────────────────────────────────────────────
+// Render seguro (textContent): el mensaje viene del LLM, nunca como HTML.
+function renderAcompanamiento(acomp) {
+  const el = document.getElementById("companion-card");
+  el.innerHTML = "";
+  if (!acomp || !acomp.mensaje) { el.classList.add("hidden"); return; }
+  const bubble = document.createElement("div");
+  bubble.className = "companion-bubble";
+  const img = document.createElement("img");
+  img.src = "/assets/mira.png";
+  img.alt = "";
+  img.className = "companion-mira";
+  img.onerror = () => img.classList.add("img-missing");
+  const p = document.createElement("p");
+  p.textContent = acomp.mensaje;
+  bubble.append(img, p);
+  el.append(bubble);
+  el.classList.remove("hidden");
+}
+
+// Mensaje contextual de Mira al abrir la app — solo si el pipeline interviene.
+async function loadHomeCompanion() {
+  const el = document.getElementById("home-companion");
+  if (!el) return;
+  try {
+    const res = await fetch(`${API}/api/companion`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.intervenir || !data.mensaje) { el.classList.add("hidden"); return; }
+    el.innerHTML = "";
+    const bubble = document.createElement("div");
+    bubble.className = "companion-bubble companion-home";
+    const p = document.createElement("p");
+    p.textContent = data.mensaje;
+    const close = document.createElement("button");
+    close.className = "companion-close";
+    close.type = "button";
+    close.setAttribute("aria-label", "Descartar mensaje");
+    close.textContent = "✕";
+    close.addEventListener("click", () => el.classList.add("hidden"));
+    bubble.append(p, close);
+    el.append(bubble);
+    el.classList.remove("hidden");
+  } catch {
+    /* el acompañamiento es opcional — si falla, no se muestra nada */
+  }
 }
 
 // ─── CONFIRM ──────────────────────────────────────────────────────────────────
@@ -440,9 +494,16 @@ async function loadPatterns() {
         </div>
       </div>
 
+      ${(data.insights && data.insights.length) ? `
+      <div class="info-card">
+        <h3 class="text-sm font-semibold text-slate-200 mb-3">Lo que Mirror nota</h3>
+        ${data.insights.map(i => `<p class="insight-line">${i.texto}</p>`).join("")}
+      </div>` : ""}
+
       <div class="info-card">
         <h3 class="text-sm font-semibold text-slate-200 mb-2">Patrón detectado</h3>
         <p class="text-sm text-slate-400">${data.patron_detectado || "—"}</p>
+        ${data.racha_registro ? `<p class="text-xs text-slate-500 mt-2">Llevas ${data.racha_registro} día(s) seguidos registrando.</p>` : ""}
       </div>
     `;
   } catch (err) {
@@ -524,3 +585,6 @@ function onCrisisKeydown(e) {
 }
 
 document.getElementById("btn-close-crisis").addEventListener("click", closeCrisisModal);
+
+// ─── ARRANQUE ─────────────────────────────────────────────────────────────────
+loadHomeCompanion();

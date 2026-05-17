@@ -1,4 +1,4 @@
-const CACHE = "mirror-v3";
+const CACHE = "mirror-v4";
 const ASSETS = ["/", "/app.js", "/styles.css", "/tailwind.css", "/assets/mira.png"];
 
 // Precarga tolerante: un asset ausente (p. ej. la mascota aún no subida)
