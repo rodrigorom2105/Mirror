@@ -4,8 +4,10 @@ python-multipart==0.0.12
 pydantic==2.10.6
 httpx==0.28.1
 chromadb==0.6.3
-pydub==0.25.1
-# audioop-lts==0.2.1  # solo para Python 3.13+
 python-dotenv==1.0.1
-# Fallback STT (descomentar si whisper.cpp falla)
+
+# Tests (dev)
+pytest==8.3.4
+
+# Fallback STT opcional (motor de respaldo multiplataforma)
 # faster-whisper==1.1.1

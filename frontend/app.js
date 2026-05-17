@@ -2,12 +2,8 @@
 const API = ""; // same origin — backend serves frontend at root
 
 // ─── RULER DATA ───────────────────────────────────────────────────────────────
-const QUADRANTS = {
-  rojo:     { label: "🔴 Rojo",    words: ["furioso","enojado","frustrado","irritado","ansioso","tenso","preocupado","abrumado"] },
-  amarillo: { label: "🟡 Amarillo", words: ["emocionado","eufórico","feliz","optimista","motivado","inspirado","orgulloso","alegre"] },
-  azul:     { label: "🔵 Azul",    words: ["triste","decepcionado","desanimado","solo","agotado","vacío","melancólico","derrotado"] },
-  verde:    { label: "🟢 Verde",   words: ["calmado","sereno","agradecido","satisfecho","tranquilo","relajado","contento","en paz"] },
-};
+// El catálogo es la fuente única del backend; se obtiene de GET /api/emotions.
+let QUADRANTS = null;
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let state = {
@@ -15,59 +11,328 @@ let state = {
   selectedQuadrant: null,
   selectedEmotion: null,
   audioBlob: null,
+  pendingText: null,
   rulerResult: null,
+  feedbackReaction: null,
+  inputMode: "voz",
 };
+
+// ─── HORA LOCAL ───────────────────────────────────────────────────────────────
+// ISO 8601 con offset local (ej. 2026-05-17T21:34:00-06:00).
+function localISOTime() {
+  const d = new Date();
+  const off = -d.getTimezoneOffset(); // minutos respecto a UTC
+  const sign = off >= 0 ? "+" : "-";
+  const pad = n => String(Math.floor(Math.abs(n))).padStart(2, "0");
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
+    + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds())
+    + sign + pad(off / 60) + ":" + pad(off % 60);
+}
+
+// ─── CATÁLOGO DE EMOCIONES ─────────────────────────────────────────────────────
+let _catalogPromise = null;
+// Promesa cacheada: taps tempranos no disparan fetches duplicados; al terminar
+// se libera para que el botón de reintento pueda volver a pedir el catálogo.
+function loadCatalog() {
+  if (_catalogPromise) return _catalogPromise;
+  document.getElementById("app-error").classList.add("hidden");
+  _catalogPromise = (async () => {
+    try {
+      const res = await fetch(`${API}/api/emotions`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      QUADRANTS = await res.json();
+    } catch (err) {
+      console.error("No se pudo cargar el catálogo de emociones", err);
+      document.getElementById("app-error").classList.remove("hidden");
+    } finally {
+      _catalogPromise = null;
+    }
+  })();
+  return _catalogPromise;
+}
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
 function showScreen(name) {
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".screen").forEach(s => { s.classList.remove("active"); s.style.animation = ""; });
   document.getElementById(`screen-${name}`)?.classList.add("active");
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.screen === name);
   });
   state.currentScreen = name;
+  // Mueve el foco al título de la pantalla para lectores de pantalla.
+  const heading = document.querySelector(`#screen-${name} [data-screen-title]`);
+  if (heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
   if (name === "history") loadHistory();
   if (name === "patterns") loadPatterns();
 }
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const target = btn.dataset.screen;
-    if (target === "mood") { showScreen("mood"); return; }
-    showScreen(target);
-  });
+  btn.addEventListener("click", () => showScreen(btn.dataset.screen));
 });
 
-// ─── MOOD METER ───────────────────────────────────────────────────────────────
-document.querySelectorAll(".quadrant").forEach(q => {
-  q.addEventListener("click", () => {
-    state.selectedQuadrant = q.dataset.q;
-    showWordScreen(q.dataset.q);
-  });
-});
+// ─── MOOD METER · transición morfológica ──────────────────────────────────────
+// Al elegir un cuadrante, éste se clona en un panel que crece físicamente hasta
+// el rect de la rejilla de emociones (sin fade) y, ya posicionado, se subdivide
+// en los 12 cuadros. La reversa recompone los cuadros y contrae el panel hasta
+// el cuadrante. Web Animations API + transform/opacity → 60fps en GPU.
+let morphing = false;
+const EXPAND_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const QUADRANT_RADIUS = 24;  // .quadrant border-radius — referencia del morph
 
-function showWordScreen(quadrant) {
-  const data = QUADRANTS[quadrant];
-  document.getElementById("words-title").textContent = `${data.label} — ¿cuál te describe mejor?`;
-  const grid = document.getElementById("words-grid");
-  grid.innerHTML = "";
-  data.words.forEach(word => {
-    const chip = document.createElement("button");
-    chip.className = "emotion-chip";
-    chip.textContent = word;
-    chip.addEventListener("click", () => {
-      document.querySelectorAll(".emotion-chip").forEach(c => c.classList.remove("selected"));
-      chip.classList.add("selected");
-      state.selectedEmotion = word;
-      setTimeout(() => showScreen("record"), 300);
-      document.getElementById("selected-emotion-badge").textContent = word;
-    });
-    grid.appendChild(chip);
-  });
-  showScreen("words");
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-document.getElementById("btn-back-words").addEventListener("click", () => showScreen("mood"));
+document.querySelectorAll(".quadrant").forEach(q => {
+  q.addEventListener("click", () => {
+    if (morphing) return;
+    if (!QUADRANTS) { loadCatalog(); return; }
+    morphToSubmatrix(q);
+  });
+});
+
+// Construye la sub-matriz de un cuadrante (sin animar): título, ejes y los 12
+// cuadros. La animación de entrada la dispara la fase 2 del morph.
+function populateSubmatrix(quadrant) {
+  const data = QUADRANTS[quadrant];
+  const stage = document.querySelector(".submatrix-stage");
+  stage.className = `submatrix-stage q-${quadrant}`;
+  document.getElementById("words-title").textContent = data.name;
+  document.getElementById("axis-top").textContent = `↑ ${data.axisTop}`;
+  document.getElementById("axis-bottom").textContent = `${data.axisBottom} ↓`;
+  document.getElementById("axis-side").textContent = data.axisSide;
+
+  const grid = document.getElementById("submatrix-grid");
+  grid.innerHTML = "";
+  grid.classList.remove("revealing", "collapsing");
+  const n = data.emotions.length;
+  // Más intensa arriba: se invierte el arreglo (que va de leve a intensa).
+  [...data.emotions].reverse().forEach((word, idx) => {
+    const t = (n - 1 - idx) / (n - 1); // 1 = más intensa, 0 = más leve
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "sub-emotion" + (t >= 0.55 ? " is-intense" : "");
+    tile.style.setProperty("--t", t.toFixed(3));
+    // Stagger desde el centro de la rejilla 3×4: el retraso crece con la distancia.
+    const row = Math.floor(idx / 3), col = idx % 3;
+    const dist = Math.hypot(row - 1.5, col - 1);
+    tile.style.animationDelay = `${(0.02 + dist * 0.035).toFixed(3)}s`;
+    tile.textContent = word;
+    tile.addEventListener("click", () => {
+      document.querySelectorAll(".sub-emotion").forEach(c => c.classList.remove("selected"));
+      tile.classList.add("selected");
+      state.selectedEmotion = word;
+      document.getElementById("selected-emotion-badge").textContent = word;
+
+      const wordsScr = document.getElementById("screen-words");
+      const recScr   = document.getElementById("screen-record");
+
+      document.body.style.overflow = "hidden";
+
+      // Poner record encima de words, invisible
+      recScr.classList.add("active");
+      recScr.style.animation  = "none";
+      recScr.style.position   = "fixed";
+      recScr.style.inset      = "0";
+      recScr.style.zIndex     = "50";
+      recScr.style.opacity    = "0";
+
+      void recScr.offsetHeight; // forzar reflow
+
+      // Crossfade simultáneo
+      recScr.style.transition   = "opacity 0.22s ease";
+      recScr.style.opacity      = "1";
+      wordsScr.style.transition = "opacity 0.22s ease";
+      wordsScr.style.opacity    = "0";
+      wordsScr.style.pointerEvents = "none";
+
+      setTimeout(() => {
+        wordsScr.classList.remove("active");
+        wordsScr.style.cssText = "";
+        recScr.style.transition = "";
+        recScr.style.opacity    = "";
+        recScr.style.position   = "";
+        recScr.style.inset      = "";
+        recScr.style.zIndex     = "";
+        document.body.style.overflow = "";
+      }, 240);
+    });
+    grid.appendChild(tile);
+  });
+}
+
+// Mide un rect montando la pantalla fuera de vista un instante: position:fixed
+// e invisible, así no parpadea ni desplaza el resto del layout.
+function measureWhileHidden(screen, selector) {
+  const prev = screen.style.cssText;
+  screen.classList.add("active");
+  screen.style.cssText = "position:fixed;inset:0;visibility:hidden;animation:none;";
+  const rect = document.querySelector(selector).getBoundingClientRect();
+  screen.classList.remove("active");
+  screen.style.cssText = prev;
+  return rect;
+}
+
+// Transform que hace que un panel colocado en destRect se vea como srcRect.
+function morphTransform(srcRect, destRect) {
+  const sx = srcRect.width / destRect.width;
+  const sy = srcRect.height / destRect.height;
+  const dx = srcRect.left - destRect.left;
+  const dy = srcRect.top - destRect.top;
+  return `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+}
+
+// Radio del panel en el extremo "cuadrante": como ahí está escalado de forma
+// no uniforme, un radio asimétrico (H/V) compensa la escala para que la
+// esquina renderice a QUADRANT_RADIUS px en ambos ejes — igual que el cuadrante.
+function morphStartRadius(srcRect, destRect) {
+  const sx = srcRect.width / destRect.width;
+  const sy = srcRect.height / destRect.height;
+  return `${(QUADRANT_RADIUS / sx).toFixed(1)}px / ${(QUADRANT_RADIUS / sy).toFixed(1)}px`;
+}
+
+// Crea el panel-clon del cuadrante, dimensionado a `rect`.
+function makeMorphPanel(quadrant, rect) {
+  const panel = document.createElement("div");
+  panel.className = `morph-panel q-${quadrant}`;
+  panel.style.left = `${rect.left}px`;
+  panel.style.top = `${rect.top}px`;
+  panel.style.width = `${rect.width}px`;
+  panel.style.height = `${rect.height}px`;
+  return panel;
+}
+
+// ─ Avance: cuadrante → sub-matriz ─
+function morphToSubmatrix(q) {
+  const quadrant = q.dataset.q;
+  state.selectedQuadrant = quadrant;
+  populateSubmatrix(quadrant);
+
+  if (prefersReducedMotion()) { showScreen("words"); return; }
+
+  morphing = true;
+  document.body.classList.add("morphing");
+  const moodScreen = document.getElementById("screen-mood");
+  const wordsScreen = document.getElementById("screen-words");
+  const moodSection = document.querySelector(".mood-section");
+  const header = document.querySelector(".mood-header");
+  const themeToggle = document.getElementById("theme-toggle");
+  const morphLayer = document.getElementById("morph-layer");
+  const grid = document.getElementById("submatrix-grid");
+  wordsScreen.classList.remove("morph-revealing", "morph-leaving");
+
+  const qRect = q.getBoundingClientRect();
+  const gridRect = measureWhileHidden(wordsScreen, "#submatrix-grid");
+
+  const panel = makeMorphPanel(quadrant, gridRect);
+  morphLayer.appendChild(panel);
+  morphLayer.classList.add("active");
+
+  // Los demás cuadrantes y la cabecera se retiran; el de origen se oculta.
+  q.classList.add("morph-source");
+  moodSection.classList.add("morphing-out");
+  header.classList.add("morphing-out");
+  themeToggle.classList.add("morphing-out");
+
+  // Fase 1 — el panel crece físicamente hasta el rect de la rejilla. El radio
+  // se anima contra la escala: al estar el panel encogido el radio es mayor,
+  // así las esquinas se ven redondeadas en TODO momento, nunca se "cuadran".
+  const expand = panel.animate(
+    [
+      { transform: morphTransform(qRect, gridRect), borderRadius: morphStartRadius(qRect, gridRect) },
+      { transform: "translate(0px, 0px) scale(1, 1)", borderRadius: "14px" },
+    ],
+    { duration: 320, easing: EXPAND_EASE, fill: "forwards" }
+  );
+
+  expand.onfinish = () => {
+    // Fase 2 — la pantalla de palabras toma el relevo y se subdivide.
+    moodScreen.classList.remove("active");
+    wordsScreen.classList.add("active", "morph-revealing");
+    state.currentScreen = "words";
+    grid.classList.add("revealing");
+    const heading = wordsScreen.querySelector("[data-screen-title]");
+    if (heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
+
+    // El panel se retira cuando los 12 cuadros ya lo cubren.
+    setTimeout(() => {
+      panel.remove();
+      morphLayer.classList.remove("active");
+      wordsScreen.classList.remove("morph-revealing");
+      grid.classList.remove("revealing");
+      moodSection.classList.remove("morphing-out");
+      header.classList.remove("morphing-out");
+      themeToggle.classList.remove("morphing-out");
+      q.classList.remove("morph-source");
+      document.body.classList.remove("morphing");
+      morphing = false;
+    }, 440);
+  };
+}
+
+// ─ Reversa: sub-matriz → cuadrante ─
+function morphBackToMood() {
+  if (morphing) return;
+  const quadrant = state.selectedQuadrant;
+  if (prefersReducedMotion() || !quadrant) { showScreen("mood"); return; }
+
+  morphing = true;
+  document.body.classList.add("morphing");
+  const moodScreen = document.getElementById("screen-mood");
+  const wordsScreen = document.getElementById("screen-words");
+  const meter = document.querySelector(".mood-meter");
+  const header = document.querySelector(".mood-header");
+  const themeToggle = document.getElementById("theme-toggle");
+  const morphLayer = document.getElementById("morph-layer");
+  const grid = document.getElementById("submatrix-grid");
+  const moodSection = document.querySelector(".mood-section");
+  const sourceQ = meter.querySelector(`.quadrant[data-q="${quadrant}"]`);
+
+  const gridRect = grid.getBoundingClientRect();
+  moodSection.classList.remove("morphing-out");
+  if (sourceQ) sourceQ.classList.remove("morph-source");
+  const qRect = measureWhileHidden(moodScreen, `.quadrant[data-q="${quadrant}"]`);
+
+  const panel = makeMorphPanel(quadrant, gridRect);
+  morphLayer.appendChild(panel);
+  morphLayer.classList.add("active");
+
+  // Los cuadros se recomponen: colapsan hacia dentro y dejan ver el panel;
+  // la cabecera de palabras se desvanece a la par.
+  wordsScreen.classList.add("morph-revealing", "morph-leaving");
+  grid.classList.remove("revealing");
+  grid.classList.add("collapsing");
+
+  setTimeout(() => {
+    // El panel queda a la vista; cambia de pantalla y contráelo al cuadrante.
+    wordsScreen.classList.remove("active", "morph-revealing", "morph-leaving");
+    moodScreen.classList.add("active");
+    state.currentScreen = "mood";
+    header.classList.remove("morphing-out");
+    themeToggle.classList.remove("morphing-out");
+    if (sourceQ) sourceQ.classList.add("morph-source");
+
+    const contract = panel.animate(
+      [
+        { transform: "translate(0px, 0px) scale(1, 1)", borderRadius: "14px" },
+        { transform: morphTransform(qRect, gridRect), borderRadius: morphStartRadius(qRect, gridRect) },
+      ],
+      { duration: 320, easing: EXPAND_EASE, fill: "forwards" }
+    );
+    contract.onfinish = () => {
+      panel.remove();
+      morphLayer.classList.remove("active");
+      if (sourceQ) sourceQ.classList.remove("morph-source");
+      grid.classList.remove("collapsing");
+      document.body.classList.remove("morphing");
+      morphing = false;
+      const heading = moodScreen.querySelector("[data-screen-title]");
+      if (heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
+    };
+  }, 300);
+}
+
+document.getElementById("btn-back-words").addEventListener("click", morphBackToMood);
 document.getElementById("btn-back-record").addEventListener("click", () => showScreen("words"));
 
 // ─── AUDIO RECORDING ──────────────────────────────────────────────────────────
@@ -75,46 +340,287 @@ let mediaRecorder = null;
 let audioChunks = [];
 let animFrame = null;
 let analyser = null;
+let audioStream = null;
+let audioCtx = null;
+let recordStartTime = 0;
+let recordTimerInterval = null;
+let waveStroke = "#7D72D6";   // color del trazo de la onda; se refresca al grabar
+// Máquina de estados: idle | arming (pidiendo micrófono) | recording | stopping
+let recState = "idle";
+let recMode = null;          // "hold" | "toggle" — cómo terminará la grabación
+let pressStartTs = 0;
+let stopWhenReady = false;   // el gesto "hold" terminó mientras se pedía el micrófono
+
+const TAP_THRESHOLD_MS = 350;  // por debajo: fue un toque → modo manos libres
+const MIN_RECORDING_MS = 500;  // ignora toques accidentales demasiado cortos
 
 const recordBtn = document.getElementById("record-btn");
 const recordStatus = document.getElementById("record-status");
 const waveCanvas = document.getElementById("waveform");
 const waveCtx = waveCanvas.getContext("2d");
 
-recordBtn.addEventListener("pointerdown", startRecording);
-recordBtn.addEventListener("pointerup", stopRecording);
-recordBtn.addEventListener("pointerleave", stopRecording);
+// ─── SELECTOR HABLAR / ESCRIBIR ───────────────────────────────────────────────
+const modeVoz = document.getElementById("mode-voz");
+const modeTexto = document.getElementById("mode-texto");
+const paneVoz = document.getElementById("pane-voz");
+const paneTexto = document.getElementById("pane-texto");
 
-async function startRecording() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const ctx = new AudioContext();
-  const source = ctx.createMediaStreamSource(stream);
-  analyser = ctx.createAnalyser();
+function setInputMode(mode) {
+  state.inputMode = mode;
+  const isVoz = mode === "voz";
+  modeVoz.classList.toggle("active", isVoz);
+  modeTexto.classList.toggle("active", !isVoz);
+  modeVoz.setAttribute("aria-selected", String(isVoz));
+  modeTexto.setAttribute("aria-selected", String(!isVoz));
+  paneVoz.classList.toggle("hidden", !isVoz);
+  paneTexto.classList.toggle("hidden", isVoz);
+  if (!isVoz && mediaRecorder && mediaRecorder.state === "recording") cancelRecording();
+}
+modeVoz.addEventListener("click", () => setInputMode("voz"));
+modeTexto.addEventListener("click", () => setInputMode("texto"));
+
+// ─── TEMPORIZADOR Y BOTÓN CANCELAR ───────────────────────────────────────────
+const btnCancelRecord = document.getElementById("btn-cancel-record");
+const recordTimerEl = document.getElementById("record-timer");
+
+function startRecordTimer() {
+  recordTimerEl.classList.remove("hidden");
+  const tick = () => {
+    const s = Math.floor((Date.now() - recordStartTime) / 1000);
+    recordTimerEl.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+  tick();
+  recordTimerInterval = setInterval(tick, 250);
+}
+
+function stopRecordTimer() {
+  clearInterval(recordTimerInterval);
+  recordTimerInterval = null;
+  recordTimerEl.classList.add("hidden");
+}
+
+function cancelRecording() {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.onstop = () => releaseAudioResources();
+    mediaRecorder.stop();
+  } else {
+    releaseAudioResources();
+  }
+  cancelAnimationFrame(animFrame);
+  stopRecordTimer();
+  recState = "idle";
+  recMode = null;
+  stopWhenReady = false;
+  audioChunks = [];
+  recordBtn.classList.remove("recording", "toggle");
+  btnCancelRecord.classList.add("hidden");
+  recordStatus.textContent = "Toca o mantén presionado para hablar";
+}
+btnCancelRecord.addEventListener("click", cancelRecording);
+
+// ─── MODO TEXTO — botón Continuar ─────────────────────────────────────────────
+document.getElementById("btn-text-continue").addEventListener("click", () => {
+  const txt = document.getElementById("text-input").value.trim();
+  if (txt.length < 3) {
+    document.getElementById("text-input").focus();
+    return;
+  }
+  analyzeText(txt); // definido en la Task 6
+});
+
+async function analyzeText(text) {
+  state.pendingText = text;
+  state.inputMode = "texto";
+  startAnalyzingCopy();
+  showScreen("analyzing");
+  setOrbColor(state.selectedQuadrant);
+  try {
+    const res = await fetch(`${API}/api/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: text,
+        emocion_seleccionada: state.selectedEmotion,
+        client_time: localISOTime(),
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    data.emocion_seleccionada = state.selectedEmotion;
+    data.transcripcion = text;
+    onAnalysisReady(data);
+  } catch (err) {
+    stopAnalyzingCopy();
+    console.error(err);
+    showAnalyzingError("");
+  }
+}
+
+recordBtn.addEventListener("pointerdown", e => {
+  // setPointerCapture: el botón conserva el pointerup aunque el dedo se deslice fuera.
+  try { recordBtn.setPointerCapture(e.pointerId); } catch {}
+  // Si ya graba en modo manos libres, este toque la finaliza.
+  if (recState === "recording" && recMode === "toggle") {
+    finishRecording();
+    return;
+  }
+  if (recState !== "idle") return; // ignora gestos mientras arma/detiene
+  pressStartTs = Date.now();
+  recMode = "hold";                // por defecto; pointerup puede pasarlo a "toggle"
+  stopWhenReady = false;
+  beginRecording();
+});
+
+recordBtn.addEventListener("pointerup", () => {
+  if (recMode !== "hold") return;  // ya pasó a toggle, o no hay gesto activo
+  const held = Date.now() - pressStartTs;
+  if (held < TAP_THRESHOLD_MS) {
+    // Toque corto → modo manos libres: sigue grabando hasta el próximo toque.
+    recMode = "toggle";
+    if (recState === "recording") {
+      recordBtn.classList.add("toggle");
+      recordStatus.textContent = "Grabando… toca para terminar";
+    }
+    // Si aún está en "arming", beginRecording verá recMode === "toggle" y continuará.
+  } else if (recState === "recording") {
+    finishRecording();             // se mantuvo presionado → termina al soltar
+  } else {
+    stopWhenReady = true;          // soltó durante "arming" → terminar al estar listo
+  }
+});
+
+recordBtn.addEventListener("pointercancel", () => {
+  if (recMode === "hold") {
+    if (recState === "recording") finishRecording();
+    else stopWhenReady = true;
+  }
+});
+
+// Soporte de teclado: Enter/Espacio alterna la grabación (modo manos libres).
+recordBtn.addEventListener("click", e => {
+  if (e.detail !== 0) return; // ignora el click sintético que sigue al pointer
+  if (recState === "recording") {
+    finishRecording();
+  } else if (recState === "idle") {
+    recMode = "toggle";
+    stopWhenReady = false;
+    beginRecording();
+  }
+});
+
+async function beginRecording() {
+  recState = "arming";
+  if (!navigator.mediaDevices?.getUserMedia) {
+    recordStatus.textContent = "La grabación necesita HTTPS o localhost.";
+    recState = "idle";
+    recMode = null;
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    recordStatus.textContent = "No se pudo acceder al micrófono. Revisa los permisos.";
+    console.error(err);
+    recState = "idle";
+    recMode = null;
+    return;
+  }
+  // Algo canceló la grabación mientras se pedía el permiso (cambio de pestaña,
+  // cancelar, navegación): descartar el stream y no grabar.
+  if (recState !== "arming") {
+    stream.getTracks().forEach(t => t.stop());
+    return;
+  }
+  // El gesto fue un "hold" demasiado corto que terminó mientras se pedía el
+  // permiso: descartar el stream sin grabar nada.
+  if (stopWhenReady && recMode === "hold") {
+    stream.getTracks().forEach(t => t.stop());
+    recState = "idle";
+    recMode = null;
+    stopWhenReady = false;
+    recordStatus.textContent = "Toca o mantén presionado para hablar";
+    return;
+  }
+
+  audioStream = stream;
+  audioCtx = new AudioContext();
+  const source = audioCtx.createMediaStreamSource(audioStream);
+  analyser = audioCtx.createAnalyser();
   analyser.fftSize = 256;
   source.connect(analyser);
 
   audioChunks = [];
-  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder = new MediaRecorder(audioStream);
   mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
   mediaRecorder.start();
+  recordStartTime = Date.now();
+  recState = "recording";
 
   recordBtn.classList.add("recording");
-  recordStatus.textContent = "Grabando...";
+  if (recMode === "toggle") {
+    recordBtn.classList.add("toggle");
+    recordStatus.textContent = "Grabando… toca para terminar";
+  } else {
+    recordStatus.textContent = "Grabando…";
+  }
+  btnCancelRecord.classList.remove("hidden");
+  startRecordTimer();
+  resizeWaveCanvas();
   drawWaveform();
+
+  // Si mientras se pedía el micrófono el usuario ya soltó un "hold" largo.
+  if (stopWhenReady) finishRecording();
 }
 
-function stopRecording() {
-  if (!mediaRecorder || mediaRecorder.state === "inactive") return;
-  mediaRecorder.stop();
-  mediaRecorder.onstop = () => {
-    state.audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-    recordStatus.textContent = "Audio listo ✓";
-    document.getElementById("transcription-box").classList.remove("hidden");
-    document.getElementById("transcription-box").textContent = "Transcribiendo...";
-    document.getElementById("btn-analyze").classList.remove("hidden");
-  };
-  recordBtn.classList.remove("recording");
+function finishRecording() {
+  if (recState !== "recording" || !mediaRecorder) return;
+  const elapsed = Date.now() - recordStartTime;
+  recState = "stopping";
+  recMode = null;
+  stopWhenReady = false;
+  recordBtn.classList.remove("recording", "toggle");
+  stopRecordTimer();
+  btnCancelRecord.classList.add("hidden");
   cancelAnimationFrame(animFrame);
+
+  mediaRecorder.onstop = () => {
+    releaseAudioResources();
+    recState = "idle";
+    if (elapsed < MIN_RECORDING_MS) {
+      recordStatus.textContent = "Mantén presionado o toca para grabar un poco más.";
+      return;
+    }
+    analyzeEntry(new Blob(audioChunks, { type: "audio/webm" }));
+  };
+  mediaRecorder.stop();
+}
+
+// Libera el micrófono y el AudioContext — sin esto el indicador de micrófono
+// queda encendido y el navegador deja de crear AudioContext tras varias grabaciones.
+function releaseAudioResources() {
+  if (audioStream) {
+    audioStream.getTracks().forEach(t => t.stop());
+    audioStream = null;
+  }
+  if (audioCtx && audioCtx.state !== "closed") {
+    audioCtx.close();
+    audioCtx = null;
+  }
+  analyser = null;
+  mediaRecorder = null;
+}
+
+function resizeWaveCanvas() {
+  // El buffer del canvas debe igualar su tamaño real en píxeles;
+  // si no, el navegador estira los 300x150 por defecto y se ve borroso.
+  const dpr = window.devicePixelRatio || 1;
+  const rect = waveCanvas.getBoundingClientRect();
+  waveCanvas.width = Math.round(rect.width * dpr);
+  waveCanvas.height = Math.round(rect.height * dpr);
+  waveCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  waveStroke = getComputedStyle(document.documentElement)
+    .getPropertyValue("--indigo-light").trim() || "#7D72D6";
 }
 
 function drawWaveform() {
@@ -122,122 +628,311 @@ function drawWaveform() {
   if (!analyser) return;
   const data = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteTimeDomainData(data);
-  waveCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
-  waveCtx.strokeStyle = "#6366f1";
-  waveCtx.lineWidth = 2;
+  const w = waveCanvas.clientWidth;
+  const h = waveCanvas.clientHeight;
+  waveCtx.clearRect(0, 0, w, h);
+  waveCtx.strokeStyle = waveStroke;
+  waveCtx.lineWidth = 2.5;
+  waveCtx.lineJoin = "round";
   waveCtx.beginPath();
   data.forEach((v, i) => {
-    const x = (i / data.length) * waveCanvas.width;
-    const y = (v / 128) * (waveCanvas.height / 2);
+    const x = (i / data.length) * w;
+    const y = (v / 128) * (h / 2);
     i === 0 ? waveCtx.moveTo(x, y) : waveCtx.lineTo(x, y);
   });
   waveCtx.stroke();
 }
 
-// ─── TRANSCRIBE + ANALYZE ─────────────────────────────────────────────────────
-document.getElementById("btn-analyze").addEventListener("click", async () => {
-  if (!state.audioBlob) return;
-  recordStatus.textContent = "Procesando...";
-  document.getElementById("btn-analyze").disabled = true;
+// ─── ANALYZING (mascota: transcribe + analiza) ────────────────────────────────
+let analyzingTimer = null;
+const ANALYZING_MESSAGES = [
+  "Escuchando lo que compartiste…",
+  "Reconociendo tu emoción…",
+  "Buscando el patrón…",
+  "Casi listo…",
+];
+
+function onAnalysisReady(data) {
+  state.rulerResult = data;
+  stopAnalyzingCopy();
+  if (data.crisis_flag) showCrisisModal();
+  renderFeedbackCard(data.feedback, data);
+  setFeedbackReaction(null);
+  const ta = document.getElementById("confirm-text");
+  ta.value = data.transcripcion || "";
+  ta.dataset.original = ta.value;
+  document.getElementById("btn-reanalyze").classList.add("hidden");
+  showScreen("confirm");
+}
+
+// Héroe de la confirmación: el mensaje de feedback de Mira es la pieza
+// central. Render seguro (textContent): el mensaje viene del LLM, nunca
+// como HTML. `data` aporta la emoción identificada como acento del cuadrante.
+function renderFeedbackCard(feedback, data) {
+  const el = document.getElementById("feedback-card");
+  el.innerHTML = "";
+  const cuad = data?.cuadrante;
+  el.className = "feedback-card"
+    + (feedback?.modo ? ` modo-${feedback.modo}` : "")
+    + (cuad ? ` q-${cuad}` : "");
+
+  // Acento sutil: la emoción principal, teñida con el color del cuadrante.
+  const emocion = (data?.emocion_primaria || "").trim();
+  if (emocion) {
+    const tag = document.createElement("span");
+    tag.className = "feedback-emotion";
+    const dot = document.createElement("span");
+    dot.className = "feedback-emotion-dot";
+    dot.setAttribute("aria-hidden", "true");
+    const name = document.createElement("span");
+    name.textContent = emocion;
+    tag.append(dot, name);
+    el.append(tag);
+  }
+
+  const p = document.createElement("p");
+  p.className = "feedback-msg";
+  p.textContent = feedback?.mensaje || "Gracias por registrar cómo te sientes.";
+  el.append(p);
+}
+
+function setFeedbackReaction(value) {
+  state.feedbackReaction = value;
+  document.getElementById("rate-yes").classList.toggle("active", value === "me_ayudo");
+  document.getElementById("rate-no").classList.toggle("active", value === "no_me_ayudo");
+}
+
+async function analyzeEntry(blob) {
+  state.audioBlob = blob;
+  startAnalyzingCopy();
+  showScreen("analyzing");
+  setOrbColor(state.selectedQuadrant);
 
   const form = new FormData();
-  form.append("audio", state.audioBlob, "recording.webm");
+  form.append("audio", blob, "recording.webm");
   form.append("emocion_seleccionada", state.selectedEmotion);
+  form.append("client_time", localISOTime());
 
   try {
     const res = await fetch(`${API}/api/entry`, { method: "POST", body: form });
+    if (!res.ok) {
+      // El backend mapea los errores de audio (corto, sin voz, formato inválido)
+      // a un HTTPException con `detail` — mostramos ese mensaje específico.
+      const errData = await res.json().catch(() => ({}));
+      const e = new Error(errData.detail || "No se pudo procesar el audio.");
+      e.userFacing = true;
+      throw e;
+    }
     const data = await res.json();
-    state.rulerResult = data;
-
-    if (data.crisis_flag) showCrisisModal();
-
-    document.getElementById("transcription-box").textContent = data.transcripcion || "";
-    renderRulerDisplay(data);
-    showScreen("confirm");
+    onAnalysisReady(data);
   } catch (err) {
-    recordStatus.textContent = "Error al procesar. Intenta de nuevo.";
+    stopAnalyzingCopy();
     console.error(err);
+    // Si el error trae un mensaje del backend lo mostramos; si es de red, genérico.
+    showAnalyzingError(err.userFacing ? err.message : "");
+  }
+}
+
+// Paleta de cuadrantes leída del CSS — se adapta sola a claro/oscuro.
+function quadrantColors() {
+  const cs = getComputedStyle(document.documentElement);
+  return {
+    rojo: cs.getPropertyValue("--red").trim(),
+    amarillo: cs.getPropertyValue("--yellow").trim(),
+    azul: cs.getPropertyValue("--blue").trim(),
+    verde: cs.getPropertyValue("--green").trim(),
+  };
+}
+
+// Tiñe el orbe de carga (aura, núcleo y motas) con el color del cuadrante
+// elegido. Sin cuadrante cae al índigo de Mira — el tono neutro de reposo.
+function setOrbColor(quadrant) {
+  const colors = quadrantColors();
+  const fallback =
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--indigo-light").trim() || "#7D72D6";
+  document.getElementById("screen-analyzing")
+    .style.setProperty("--orb-color", colors[quadrant] || fallback);
+}
+
+// Rotación de los mensajes de carga. En vez de reiniciar la animación con un
+// reflow forzado, hacemos un cross-fade limpio: marcamos el texto como
+// "saliendo" (.is-leaving → opacity 0), y cuando termina la transición
+// cambiamos el texto y lo dejamos volver a entrar. Sin layout thrashing.
+let analyzingSwapTimer = null;
+
+function startAnalyzingCopy() {
+  document.getElementById("analyzing-main").classList.remove("hidden");
+  document.getElementById("analyzing-error").classList.add("hidden");
+  const el = document.getElementById("analyzing-status");
+  let i = 0;
+  clearTimeout(analyzingSwapTimer);
+  clearInterval(analyzingTimer);
+  el.classList.remove("is-leaving");
+  el.textContent = ANALYZING_MESSAGES[0];
+  analyzingTimer = setInterval(() => {
+    i = (i + 1) % ANALYZING_MESSAGES.length;
+    const next = ANALYZING_MESSAGES[i];
+    el.classList.add("is-leaving"); // se desvanece (transición CSS)
+    analyzingSwapTimer = setTimeout(() => {
+      el.textContent = next;
+      el.classList.remove("is-leaving"); // vuelve a entrar
+    }, 320); // == duración de la transición .analyzing-status
+  }, 2600);
+}
+
+function stopAnalyzingCopy() {
+  clearInterval(analyzingTimer);
+  clearTimeout(analyzingSwapTimer);
+  analyzingTimer = null;
+  analyzingSwapTimer = null;
+  document.getElementById("analyzing-status").classList.remove("is-leaving");
+}
+
+function showAnalyzingError(message) {
+  stopAnalyzingCopy(); // detiene la rotación por si quedara viva
+  document.getElementById("analyzing-main").classList.add("hidden");
+  document.getElementById("analyzing-error").classList.remove("hidden");
+  document.getElementById("analyzing-error-msg").textContent =
+    message || "Revisa tu conexión e inténtalo otra vez.";
+}
+
+document.getElementById("btn-analyzing-retry").addEventListener("click", () => {
+  // En modo texto se reintenta el texto; el audioBlob puede haber quedado de un
+  // intento de voz previo sin limpiar (la navegación por tabs no lo resetea).
+  if (state.inputMode === "texto" && state.pendingText) analyzeText(state.pendingText);
+  else if (state.audioBlob) analyzeEntry(state.audioBlob);
+  else if (state.pendingText) analyzeText(state.pendingText);
+});
+document.getElementById("btn-analyzing-back").addEventListener("click", () => {
+  resetRecordState();
+  showScreen("record");
+});
+
+
+// ─── CONFIRM ──────────────────────────────────────────────────────────────────
+// El registro NO se guarda durante el análisis: aquí el usuario decide.
+const btnConfirmSave = document.getElementById("btn-confirm-save");
+
+document.getElementById("rate-yes").addEventListener("click", () =>
+  setFeedbackReaction(state.feedbackReaction === "me_ayudo" ? null : "me_ayudo"));
+document.getElementById("rate-no").addEventListener("click", () =>
+  setFeedbackReaction(state.feedbackReaction === "no_me_ayudo" ? null : "no_me_ayudo"));
+
+// El campo editable: si se corrige el texto, aparece "Actualizar análisis".
+const confirmText = document.getElementById("confirm-text");
+confirmText.addEventListener("input", () => {
+  const changed = confirmText.value.trim() !== (confirmText.dataset.original || "").trim();
+  document.getElementById("btn-reanalyze").classList.toggle("hidden", !changed);
+});
+document.getElementById("btn-reanalyze").addEventListener("click", () => {
+  const txt = confirmText.value.trim();
+  if (txt.length >= 3) analyzeText(txt);
+});
+
+document.getElementById("btn-details").addEventListener("click", () => {
+  if (state.rulerResult) openDrawer("Detalles del registro", rulerDetailHTML(state.rulerResult));
+});
+
+btnConfirmSave.addEventListener("click", async () => {
+  if (!state.rulerResult) return;
+  btnConfirmSave.disabled = true;
+  btnConfirmSave.textContent = "Guardando…";
+  try {
+    // Guarda el texto visible en el campo editable (puede haberse corregido
+    // sin re-analizar); el resto del análisis es el que el usuario ya vio.
+    const payload = {
+      ...state.rulerResult,
+      transcripcion: confirmText.value.trim() || state.rulerResult.transcripcion,
+      reaccion_feedback: state.feedbackReaction,
+    };
+    const res = await fetch(`${API}/api/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    resetRecordState();
+    showScreen("mood");
+  } catch (err) {
+    console.error(err);
+    btnConfirmSave.textContent = "Reintentar guardar";
   } finally {
-    document.getElementById("btn-analyze").disabled = false;
+    btnConfirmSave.disabled = false;
   }
 });
 
-// ─── RULER DISPLAY ────────────────────────────────────────────────────────────
-function renderRulerDisplay(ruler) {
-  const container = document.getElementById("ruler-display");
-  const colorMap = { rojo: "text-red-300", amarillo: "text-yellow-300", azul: "text-blue-300", verde: "text-green-300" };
-  container.innerHTML = `
-    <div class="bg-white/5 rounded-xl p-4">
-      <p class="text-xs text-slate-400 mb-1">Emoción principal</p>
-      <p class="text-lg font-bold ${colorMap[ruler.cuadrante] || ''}">${ruler.emocion_primaria || ""}</p>
-      ${ruler.emociones_secundarias?.length ? `<p class="text-xs text-slate-400 mt-1">${ruler.emociones_secundarias.join(", ")}</p>` : ""}
-    </div>
-    <div class="bg-white/5 rounded-xl p-4">
-      <p class="text-xs text-slate-400 mb-1">Disparador</p>
-      <p class="text-sm text-white">${ruler.disparador || "—"}</p>
-    </div>
-    <div class="bg-white/5 rounded-xl p-4">
-      <p class="text-xs text-slate-400 mb-1">Intensidad</p>
-      <div class="flex gap-1 mt-1">
-        ${Array.from({length:10},(_,i)=>`<div class="h-2 flex-1 rounded-full ${i < (ruler.intensidad||0) ? "bg-indigo-500" : "bg-white/10"}"></div>`).join("")}
-      </div>
-    </div>
-    <div class="bg-white/5 rounded-xl p-4">
-      <p class="text-xs text-slate-400 mb-1">Resumen</p>
-      <p class="text-sm text-slate-300 italic">${ruler.resumen || "—"}</p>
-    </div>
-    ${ruler.pensamientos?.length ? `<div class="bg-white/5 rounded-xl p-4"><p class="text-xs text-slate-400 mb-2">Pensamientos</p>${ruler.pensamientos.map(t=>`<p class="text-sm text-slate-300">• ${t}</p>`).join("")}</div>` : ""}
-  `;
-}
-
-// ─── SAVE / DISCARD ───────────────────────────────────────────────────────────
-document.getElementById("btn-save").addEventListener("click", async () => {
-  if (!state.rulerResult) return;
-  // Entry already saved via /api/entry — just navigate home
-  resetRecordState();
-  showScreen("mood");
-});
-
-document.getElementById("btn-discard").addEventListener("click", () => {
+document.getElementById("btn-confirm-cancel").addEventListener("click", () => {
   resetRecordState();
   showScreen("mood");
 });
 
 function resetRecordState() {
   state.audioBlob = null;
+  state.pendingText = null;
   state.rulerResult = null;
-  document.getElementById("transcription-box").classList.add("hidden");
-  document.getElementById("btn-analyze").classList.add("hidden");
-  document.getElementById("btn-analyze").disabled = false;
-  recordStatus.textContent = "Listo";
+  state.feedbackReaction = null;
+  recState = "idle";
+  recMode = null;
+  stopWhenReady = false;
+  recordBtn.classList.remove("recording", "toggle");
+  recordStatus.textContent = "Toca o mantén presionado para hablar";
+  setInputMode("voz");
+  document.getElementById("text-input").value = "";
+  stopRecordTimer();
+  btnCancelRecord.classList.add("hidden");
+  btnConfirmSave.disabled = false;
+  btnConfirmSave.textContent = "Guardar";
+  const ta = document.getElementById("confirm-text");
+  ta.value = "";
+  ta.dataset.original = "";
+  document.getElementById("btn-reanalyze").classList.add("hidden");
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
 async function loadHistory() {
   const container = document.getElementById("history-list");
-  container.innerHTML = `<div class="spinner mx-auto mt-8"></div>`;
+  container.setAttribute("aria-busy", "true");
+  container.innerHTML = skeletonCards(4);
   try {
     const res = await fetch(`${API}/api/history?limit=30`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (!data.entries?.length) {
-      container.innerHTML = `<p class="text-slate-500 text-center mt-8">Sin registros aún.</p>`;
+      container.removeAttribute("aria-busy");
+      container.innerHTML = `<p class="empty-state">Aún no hay registros.<br/>Tu primer momento aparecerá aquí.</p>`;
       return;
     }
-    container.innerHTML = data.entries.map(e => `
-      <div class="entry-card ${e.cuadrante || 'azul'}">
+    container.removeAttribute("aria-busy");
+    container.innerHTML = data.entries.map((e, i) => `
+      <button type="button" class="entry-card ${e.cuadrante || 'azul'}" data-idx="${i}">
         <div class="flex justify-between items-start">
           <div>
-            <span class="font-medium text-white">${e.emocion_primaria || "—"}</span>
-            ${e.emociones_secundarias ? `<span class="text-xs text-slate-400 ml-2">${Array.isArray(e.emociones_secundarias) ? e.emociones_secundarias.join(", ") : e.emociones_secundarias}</span>` : ""}
+            <span class="font-medium t-strong">${escapeHTML(e.emocion_primaria) || "—"}</span>
+            ${e.emociones_secundarias ? `<span class="text-xs t-dim ml-2">${Array.isArray(e.emociones_secundarias) ? e.emociones_secundarias.map(escapeHTML).join(", ") : escapeHTML(e.emociones_secundarias)}</span>` : ""}
           </div>
-          <span class="text-xs text-slate-500">${formatDate(e.saved_at)}</span>
+          <span class="text-xs t-dim">${formatDate(e.saved_at)}</span>
         </div>
-        <p class="text-sm text-slate-400 mt-1">${e.resumen || ""}</p>
-        ${e.disparador ? `<p class="text-xs text-slate-500 mt-1">↳ ${e.disparador}</p>` : ""}
-      </div>
+        <p class="text-sm t-dim mt-1">${escapeHTML(e.resumen) || ""}</p>
+        ${e.disparador ? `<p class="text-xs t-faint mt-1">↳ ${escapeHTML(e.disparador)}</p>` : ""}
+      </button>
     `).join("");
+    container.querySelectorAll(".entry-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const entry = data.entries[Number(card.dataset.idx)];
+        let extra = "";
+        if (entry.feedback_mensaje) {
+          extra = `<div class="info-card"><p class="info-label">Lo que te dijo Mira</p>`
+            + `<p class="text-sm t-soft">${escapeHTML(entry.feedback_mensaje)}</p></div>`
+            + reactionControlHTML(entry.feedback_reaccion || "");
+        }
+        openDrawer(entry.emocion_primaria || "Registro", rulerDetailHTML(entry) + extra);
+        if (entry.feedback_mensaje && entry.id) wireDrawerReaction(entry.id);
+      });
+    });
   } catch (err) {
-    container.innerHTML = `<p class="text-red-400 text-center mt-8">Error cargando historial</p>`;
+    container.removeAttribute("aria-busy");
+    container.innerHTML = `<p class="error-state">No se pudo cargar el historial.</p>`;
   }
 }
 
@@ -250,61 +945,72 @@ function formatDate(iso) {
 // ─── PATTERNS ─────────────────────────────────────────────────────────────────
 async function loadPatterns() {
   const container = document.getElementById("patterns-container");
-  container.innerHTML = `<div class="spinner mx-auto mt-8"></div>`;
+  container.setAttribute("aria-busy", "true");
+  container.innerHTML = skeletonCards(3);
   try {
     const res = await fetch(`${API}/api/patterns`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    const moodColors = { rojo: "#ef4444", amarillo: "#eab308", azul: "#3b82f6", verde: "#22c55e" };
+    const moodColors = quadrantColors();
     const moodEntries = Object.entries(data.mini_mood_meter || {});
     const total = moodEntries.reduce((s, [,v]) => s + v, 0);
 
+    container.removeAttribute("aria-busy");
     container.innerHTML = `
-      <!-- Mini mood meter -->
-      <div class="bg-white/5 rounded-xl p-4">
-        <h3 class="text-sm font-medium text-slate-300 mb-3">Distribución emocional</h3>
+      <div class="info-card">
+        <h3 class="text-sm font-semibold t-strong mb-3">Distribución emocional</h3>
         ${moodEntries.length ? moodEntries.map(([q, count]) => `
           <div class="flex items-center gap-2 mb-2">
-            <span class="text-xs w-16 text-slate-400 capitalize">${q}</span>
-            <div class="flex-1 bg-white/5 rounded-full h-2">
-              <div class="h-2 rounded-full" style="width:${Math.round(count/total*100)}%;background:${moodColors[q]||'#6366f1'}"></div>
+            <span class="text-xs w-16 t-dim capitalize">${q}</span>
+            <div class="flex-1 track rounded-full h-2">
+              <div class="h-2 rounded-full" style="width:${total ? Math.round(count/total*100) : 0}%;background:${moodColors[q]||'#5B53C9'}"></div>
             </div>
-            <span class="text-xs text-slate-500">${count}</span>
-          </div>`).join("") : `<p class="text-slate-500 text-sm">Sin datos aún</p>`}
+            <span class="text-xs t-dim">${count}</span>
+          </div>`).join("") : `<p class="t-dim text-sm">Sin datos aún</p>`}
       </div>
 
-      <!-- Top words -->
-      <div class="bg-white/5 rounded-xl p-4">
-        <h3 class="text-sm font-medium text-slate-300 mb-3">Emociones más frecuentes</h3>
+      <div class="info-card">
+        <h3 class="text-sm font-semibold t-strong mb-3">Emociones más frecuentes</h3>
         <div class="flex flex-wrap gap-2">
-          ${(data.palabras_frecuentes || []).map(w => `<span class="emotion-chip text-xs">${w}</span>`).join("") || `<p class="text-slate-500 text-sm">Sin datos aún</p>`}
+          ${(data.palabras_frecuentes || []).map(w => `<span class="emotion-chip emotion-chip-sm">${w}</span>`).join("") || `<p class="t-dim text-sm">Sin datos aún</p>`}
         </div>
       </div>
 
-      <!-- Pattern -->
-      <div class="bg-white/5 rounded-xl p-4">
-        <h3 class="text-sm font-medium text-slate-300 mb-2">Patrón detectado</h3>
-        <p class="text-sm text-slate-400">${data.patron_detectado || "—"}</p>
+      ${(data.insights && data.insights.length) ? `
+      <div class="info-card">
+        <h3 class="text-sm font-semibold t-strong mb-3">Lo que Mirror nota</h3>
+        ${data.insights.map(i => `<p class="insight-line">${i.texto}</p>`).join("")}
+      </div>` : ""}
+
+      <div class="info-card">
+        <h3 class="text-sm font-semibold t-strong mb-2">Patrón detectado</h3>
+        <p class="text-sm t-dim">${data.patron_detectado || "—"}</p>
+        ${data.racha_registro ? `<p class="text-xs t-faint mt-2">Llevas ${data.racha_registro} día(s) seguidos registrando.</p>` : ""}
       </div>
     `;
   } catch (err) {
-    container.innerHTML = `<p class="text-red-400 text-center mt-8">Error cargando patrones</p>`;
+    container.removeAttribute("aria-busy");
+    container.innerHTML = `<p class="error-state">No se pudieron cargar los patrones.</p>`;
   }
 }
 
 // ─── CHAT ─────────────────────────────────────────────────────────────────────
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
+const btnSendChat = document.getElementById("btn-send-chat");
 
-document.getElementById("btn-send-chat").addEventListener("click", sendChat);
+btnSendChat.addEventListener("click", sendChat);
 chatInput.addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
 
 async function sendChat() {
   const q = chatInput.value.trim();
   if (!q) return;
   chatInput.value = "";
+  btnSendChat.disabled = true;
   appendBubble(q, "user");
-  const thinking = appendBubble("...", "ai");
+  const thinking = appendBubble("…", "ai");
+  thinking.classList.add("bubble-thinking");
 
   try {
     const res = await fetch(`${API}/api/chat`, {
@@ -312,28 +1018,242 @@ async function sendChat() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: q }),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    thinking.classList.remove("bubble-thinking");
     thinking.textContent = data.answer || "No pude responder.";
   } catch {
+    thinking.classList.remove("bubble-thinking");
     thinking.textContent = "Error de conexión.";
+  } finally {
+    btnSendChat.disabled = false;
   }
 }
 
 function appendBubble(text, role) {
   const div = document.createElement("div");
-  div.className = `p-3 max-w-xs text-sm ${role === "user" ? "bubble-user self-end ml-auto" : "bubble-ai self-start"} text-white`;
+  div.className = `chat-bubble ${role === "user" ? "bubble-user self-end ml-auto" : "bubble-ai self-start"}`;
   div.textContent = text;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
   return div;
 }
 
-// ─── CRISIS MODAL ─────────────────────────────────────────────────────────────
-function showCrisisModal() {
-  const modal = document.getElementById("crisis-modal");
-  modal.style.display = "flex";
+// ─── BOTTOM DRAWER ────────────────────────────────────────────────────────────
+let drawerLastFocus = null;
+let drawerDragStartY = 0;
+
+const drawerEl = document.getElementById("drawer");
+const drawerSheet = drawerEl.querySelector(".drawer-sheet");
+
+function openDrawer(title, contentHTML) {
+  document.getElementById("drawer-title").textContent = title;
+  document.getElementById("drawer-content").innerHTML = contentHTML;
+  drawerLastFocus = document.activeElement;
+  drawerEl.classList.add("open");
+  drawerEl.setAttribute("aria-hidden", "false");
+  if (window.lucide) lucide.createIcons();
+  document.getElementById("drawer-close").focus();
+  document.addEventListener("keydown", onDrawerKeydown);
 }
 
-document.getElementById("btn-close-crisis").addEventListener("click", () => {
-  document.getElementById("crisis-modal").style.display = "none";
+function closeDrawer() {
+  drawerEl.classList.remove("open");
+  drawerEl.setAttribute("aria-hidden", "true");
+  document.removeEventListener("keydown", onDrawerKeydown);
+  if (drawerLastFocus && typeof drawerLastFocus.focus === "function") drawerLastFocus.focus();
+}
+
+function onDrawerKeydown(e) {
+  if (e.key === "Escape") { closeDrawer(); return; }
+  if (e.key !== "Tab") return;
+  // Atrapa el foco dentro del drawer (cumple la promesa de aria-modal).
+  const f = drawerSheet.querySelectorAll('a[href], button, [tabindex]:not([tabindex="-1"])');
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+drawerEl.querySelector(".drawer-backdrop").addEventListener("click", closeDrawer);
+document.getElementById("drawer-close").addEventListener("click", closeDrawer);
+
+// Arrastrar la hoja hacia abajo para cerrarla.
+drawerSheet.addEventListener("pointerdown", e => {
+  if (e.target.closest("#drawer-content")) return; // no interferir con el scroll
+  drawerDragStartY = e.clientY;
+  drawerSheet.setPointerCapture(e.pointerId);
 });
+drawerSheet.addEventListener("pointerup", e => {
+  if (drawerDragStartY && e.clientY - drawerDragStartY > 80) closeDrawer();
+  drawerDragStartY = 0;
+});
+drawerSheet.addEventListener("pointercancel", () => { drawerDragStartY = 0; });
+
+/** HTML del desglose RULER de una entrada — reusable en resultados e historial. */
+function rulerDetailHTML(ruler) {
+  const colorMap = { rojo: "q-rojo", amarillo: "q-amarillo", azul: "q-azul", verde: "q-verde" };
+  const sec = ruler.emociones_secundarias;
+  const secArr = Array.isArray(sec) ? sec : (sec ? [sec] : []);
+  const pens = Array.isArray(ruler.pensamientos) ? ruler.pensamientos : [];
+  return `
+    <div class="info-card">
+      <p class="info-label">Emoción principal</p>
+      <p class="text-lg font-bold ${colorMap[ruler.cuadrante] || ''}">${escapeHTML(ruler.emocion_primaria) || "—"}</p>
+      ${secArr.length ? `<p class="text-xs t-dim mt-1">${secArr.map(escapeHTML).join(", ")}</p>` : ""}
+    </div>
+    <div class="info-card">
+      <p class="info-label">Disparador</p>
+      <p class="text-sm t-strong">${escapeHTML(ruler.disparador) || "—"}</p>
+    </div>
+    <div class="info-card">
+      <p class="info-label">Intensidad</p>
+      <div class="flex gap-1 mt-1">
+        ${Array.from({ length: 10 }, (_, i) => `<div class="h-2 flex-1 rounded-full ${i < (ruler.intensidad || 0) ? "bg-indigo-500" : "track"}"></div>`).join("")}
+      </div>
+    </div>
+    <div class="info-card">
+      <p class="info-label">Resumen</p>
+      <p class="text-sm t-soft italic">${escapeHTML(ruler.resumen) || "—"}</p>
+    </div>
+    ${pens.length ? `<div class="info-card"><p class="info-label mb-2">Pensamientos</p>${pens.map(t => `<p class="text-sm t-soft">• ${escapeHTML(t)}</p>`).join("")}</div>` : ""}
+  `;
+}
+
+/** Control "¿Te ayudó?" para el detalle del historial. `current` = me_ayudo|no_me_ayudo|"" */
+function reactionControlHTML(current) {
+  const on = r => (current === r ? " active" : "");
+  return `
+    <div class="feedback-rating" id="drawer-rating">
+      <span class="feedback-rating-q">¿Te ayudó este mensaje?</span>
+      <div class="feedback-rating-btns">
+        <button class="rate-btn${on("me_ayudo")}" data-r="me_ayudo" type="button" aria-label="Sí, me ayudó">
+          <i data-lucide="thumbs-up" aria-hidden="true"></i>
+        </button>
+        <button class="rate-btn${on("no_me_ayudo")}" data-r="no_me_ayudo" type="button" aria-label="No me ayudó">
+          <i data-lucide="thumbs-down" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>`;
+}
+
+/** Cablea el control de reacción del drawer a POST /api/feedback/reaction. */
+function wireDrawerReaction(entryId) {
+  const rating = document.getElementById("drawer-rating");
+  if (!rating) return;
+  rating.querySelectorAll(".rate-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      // Toggle: tocar el botón activo limpia la reacción.
+      const reaccion = btn.classList.contains("active") ? "" : btn.dataset.r;
+      rating.querySelectorAll(".rate-btn").forEach(b => b.classList.remove("active"));
+      if (reaccion) btn.classList.add("active");
+      try {
+        await fetch(`${API}/api/feedback/reaction`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entry_id: entryId, reaccion }),
+        });
+      } catch (err) {
+        console.error("No se pudo registrar la reacción", err);
+      }
+    });
+  });
+}
+
+// ─── CRISIS MODAL ─────────────────────────────────────────────────────────────
+let crisisLastFocus = null;
+
+function showCrisisModal() {
+  const modal = document.getElementById("crisis-modal");
+  crisisLastFocus = document.activeElement;
+  modal.classList.add("visible");
+  document.getElementById("btn-close-crisis").focus();
+  document.addEventListener("keydown", onCrisisKeydown);
+}
+
+function closeCrisisModal() {
+  const modal = document.getElementById("crisis-modal");
+  modal.classList.remove("visible");
+  document.removeEventListener("keydown", onCrisisKeydown);
+  if (crisisLastFocus && typeof crisisLastFocus.focus === "function") crisisLastFocus.focus();
+}
+
+// Cierra con Escape y atrapa el foco dentro del modal (Tab cíclico).
+function onCrisisKeydown(e) {
+  if (e.key === "Escape") { closeCrisisModal(); return; }
+  if (e.key !== "Tab") return;
+  const f = document.getElementById("crisis-modal").querySelectorAll('a[href], button');
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+document.getElementById("btn-close-crisis").addEventListener("click", closeCrisisModal);
+
+// ─── SEGURIDAD ────────────────────────────────────────────────────────────────
+/** Escapa texto del usuario / LLM antes de interpolarlo en HTML. */
+function escapeHTML(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+// ─── UTILIDADES DE ANIMACIÓN ──────────────────────────────────────────────────
+
+/** Anima la entrada de un elemento texto palabra por palabra. */
+function animateWords(el) {
+  const words = el.textContent.trim().split(/\s+/);
+  el.textContent = "";
+  el.classList.add("word-anim");
+  words.forEach((w, i) => {
+    const span = document.createElement("span");
+    span.className = "word";
+    span.textContent = w;
+    span.style.animationDelay = `${i * 0.07}s`;
+    el.appendChild(span);
+    if (i < words.length - 1) el.appendChild(document.createTextNode(" "));
+  });
+}
+
+/** Genera n tarjetas skeleton para indicar carga. */
+function skeletonCards(n = 4) {
+  return Array.from({ length: n }, () => `
+    <div class="skeleton-card">
+      <div class="skel-line w-40"></div>
+      <div class="skel-line w-80"></div>
+      <div class="skel-line w-60"></div>
+    </div>`).join("");
+}
+
+// ─── TEMA CLARO / OSCURO ──────────────────────────────────────────────────────
+// El script inline del <head> ya aplicó `data-theme` antes del render. Aquí solo
+// se sincroniza el ícono del toggle y se persiste la elección del usuario.
+const themeToggle = document.getElementById("theme-toggle");
+
+function syncThemeUI() {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  themeToggle.innerHTML = `<i data-lucide="${dark ? "sun" : "moon"}" aria-hidden="true"></i>`;
+  if (window.lucide) lucide.createIcons();
+  const meta = document.getElementById("theme-color-meta");
+  if (meta) meta.content = dark ? "#1A1714" : "#F7F1E6";
+}
+
+function toggleTheme() {
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("mirror-theme", next);
+  syncThemeUI();
+}
+
+themeToggle.addEventListener("click", toggleTheme);
+syncThemeUI();
+
+// ─── ARRANQUE ─────────────────────────────────────────────────────────────────
+
+// Anima la tagline de la pantalla principal al cargar la app.
+const taglineEl = document.querySelector("#screen-mood .tagline");
+if (taglineEl) animateWords(taglineEl);
+
+document.getElementById("btn-app-retry").addEventListener("click", loadCatalog);
+loadCatalog();

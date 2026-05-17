@@ -10,6 +10,9 @@ build/
 # Env
 .env
 
+# Node (tooling de Tailwind)
+node_modules/
+
 # Data (no commitear la DB ni los modelos)
 data/chroma_db/
 data/audio/
@@ -20,11 +23,16 @@ backend/data/audio/
 backend/data/models/*.bin
 backend/data/models/*.gguf
 
+# SQLite del perfil consolidado y sesiones (derivado reconstruible)
+data/profile.db*
+backend/data/profile.db*
+
 # whisper.cpp compiled binary
 backend/whisper.cpp/
 
 # Claude Code
 .claude/
+.superpowers/
 
 # OS
 .DS_Store

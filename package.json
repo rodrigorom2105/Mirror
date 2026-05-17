@@ -1,0 +1,13 @@
+{
+  "name": "mirror",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mirror — Autoconocimiento Emocional (frontend tooling)",
+  "scripts": {
+    "build:css": "tailwindcss -i ./frontend/src/input.css -o ./frontend/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./frontend/src/input.css -o ./frontend/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

@@ -1,134 +1,1683 @@
-/* Custom styles beyond Tailwind CDN */
+/* Mirror — estilos del frontend (mobile-first). Tailwind compilado en tailwind.css */
 
 :root {
-  --red: #ef4444;
-  --yellow: #eab308;
-  --blue: #3b82f6;
-  --green: #22c55e;
+  /* Cuadrantes — tono base (texto/borde) y superficie pastel */
+  --red: #C2553B;        --red-soft: #F3DDD4;
+  --yellow: #B0852A;     --yellow-soft: #F6ECD6;
+  --blue: #4E6E88;       --blue-soft: #E0E8EE;
+  --green: #557A58;      --green-soft: #E2EBE2;
+  /* Acento (índigo cálido — tono de la mascota Mira) */
+  --indigo: #5B53C9;
+  --indigo-light: #7D72D6;
+  /* Superficies y texto */
+  --bg: #F7F1E6;
+  --surface: #FCF8F0;
+  --surface-2: #F1E9D8;
+  --quad-hi: #FFFFFF;
+  --border: rgba(120, 100, 70, 0.16);
+  --text: #4A4338;
+  --text-dim: #6E665C;
+  --tab-h: 68px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+/* ─── Base ──────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 body {
-  background-color: #0f172a;
-  color: #f1f5f9;
-  font-family: 'Inter', system-ui, sans-serif;
-  overscroll-behavior: none;
+  margin: 0;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 50% -15%, rgba(125, 114, 214, 0.10) 0%, transparent 60%),
+    radial-gradient(circle at 100% 110%, rgba(194, 85, 59, 0.06) 0%, transparent 45%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overscroll-behavior-y: contain;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Mood Meter grid */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Utilidad de ocultar — debe ganar a cualquier display de componente */
+.hidden { display: none !important; }
+
+/* Clases semánticas — reemplazan utilidades Tailwind de color en plantillas JS */
+.t-strong { color: var(--text); }
+.t-soft   { color: #6A6356; }
+.t-dim    { color: var(--text-dim); }
+.t-faint  { color: var(--text-dim); }
+.q-rojo     { color: var(--red); }
+.q-amarillo { color: var(--yellow); }
+.q-azul     { color: var(--blue); }
+.q-verde    { color: var(--green); }
+.track    { background: rgba(120, 100, 70, 0.10); }
+
+/* Foco visible y consistente para navegación por teclado */
+:focus-visible {
+  outline: 2.5px solid var(--indigo-light);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+[data-screen-title]:focus-visible { outline: none; }
+
+/* ─── Screens + transiciones ────────────────────────────────────────── */
+
+.screen { display: none; }
+
+.screen.active {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: calc(var(--safe-t) + 22px) 20px calc(var(--tab-h) + var(--safe-b) + 22px);
+  animation: screenIn 0.42s var(--ease-soft) both;
+}
+
+#screen-chat.active {
+  height: 100dvh;
+  min-height: unset;
+  padding: 0;
+}
+
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Mira — la mascota ─────────────────────────────────────────────────
+   Capas anidadas: cada una anima UNA sola transform a un ritmo distinto,
+   así se componen sin pisarse y el movimiento nunca se siente mecánico.
+   .mira       → entrada (una vez, al aparecer la pantalla)
+   .mira-anim  → flotación vertical
+   .mira-tilt  → balanceo suave (rotación)
+   .mira-face  → respiración (escala)
+   Las tres duraciones son no armónicas (5.3 / 7.1 / 4.7 s): su mínimo
+   común es enorme, así que el ciclo compuesto nunca se ve repetir.
+   Todo se anima con transform/opacity → 60fps en GPU.                    */
+
+.mira {
+  position: relative;
+  flex-shrink: 0;
+  animation: miraEnter 0.86s var(--ease-soft) both;
+  will-change: transform;
+}
+.mira-sm      { width: 66px;  height: 66px; }
+.mira-lg      { width: 172px; height: 172px; }
+.mira-confirm { width: 56px;  height: 56px; }
+.mira-hero    { width: 104px; height: 104px; }
+
+.mira-anim, .mira-tilt, .mira-face {
+  width: 100%;
+  height: 100%;
+}
+.mira-anim { animation: miraFloat 5.3s ease-in-out infinite; will-change: transform; }
+.mira-tilt { animation: miraTilt 7.1s ease-in-out infinite; will-change: transform; }
+.mira-face {
+  animation: miraFaceIdle 4.7s ease-in-out infinite;
+  will-change: transform;
+  transform-origin: 50% 78%;   /* respira anclada a la base, no al centro */
+}
+
+.mira-body {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 6px 16px rgba(125, 114, 214, 0.35));
+}
+.mira-lg .mira-body { filter: drop-shadow(0 0 28px rgba(125, 114, 214, 0.45)); }
+
+/* Placeholder si aún no existe el asset de la mascota */
+.mira-body.img-missing {
+  font-size: 0;
+  color: transparent;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, #7D72D6 0%, #5B53C9 55%, #3F3895 100%);
+  box-shadow: 0 8px 30px rgba(91, 83, 201, 0.4);
+}
+
+/* Entrada cálida: aparece, se asienta con un respiro suave — sin "pop" duro. */
+@keyframes miraEnter {
+  0%   { opacity: 0; transform: scale(0.72) translateY(12px); }
+  60%  { opacity: 1; transform: scale(1.035) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+/* Flotación: sube y baja con un asentamiento orgánico, asimétrico. */
+@keyframes miraFloat {
+  0%   { transform: translateY(0); }
+  46%  { transform: translateY(-7px); }
+  70%  { transform: translateY(-2px); }     /* micro-asentamiento, no rebote */
+  100% { transform: translateY(0); }
+}
+/* Balanceo: rotación lenta y desigual a cada lado para que no se sienta péndulo. */
+@keyframes miraTilt {
+  0%   { transform: rotate(-2.4deg); }
+  38%  { transform: rotate(1.6deg); }
+  64%  { transform: rotate(2.6deg); }
+  100% { transform: rotate(-2.4deg); }
+}
+/* Respiración: solo una escala suave y calmada. Mira NO parpadea. */
+@keyframes miraFaceIdle {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.035); }
+}
+
+/* Mira en la cabecera de la sub-matriz: acompaña y observa con calma. */
+.mira-words {
+  margin: 2px auto 8px;
+}
+/* Mira "escuchando" en la pantalla de grabación: atenta. Su respiración
+   se vuelve un poco más viva y el balanceo más despierto, sin distraer. */
+.mira-listen {
+  margin: 0 auto -4px;
+}
+.mira-listen .mira-tilt { animation-duration: 6.2s; }
+.mira-listen .mira-face { animation: miraListen 3.4s ease-in-out infinite; }
+@keyframes miraListen {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.05); }
+}
+
+/* ─── REGISTRAR · cabecera + mood meter ─────────────────────────────── */
+
+.mood-header {
+  text-align: center;
+  padding-top: 4px;
+}
+.mood-header .mira { margin: 0 auto 2px; }
+
+#screen-mood h1 {
+  margin: 6px 0 0;
+  font-size: clamp(2rem, 8.5vw, 2.75rem);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+  background: linear-gradient(135deg, #7D72D6 0%, #5B53C9 60%, #C2553B 120%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tagline {
+  margin: 6px 0 0;
+  font-size: clamp(0.9rem, 3.5vw, 1.05rem);
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.mood-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  padding: 14px 0;
+}
+
+.axis-label {
+  color: var(--text-dim);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.axis-h {
+  margin: 0;
+  text-align: center;
+  font-size: 0.66rem;
+}
+.axis-h:first-of-type { margin-bottom: 10px; }
+.axis-h:last-of-type { margin-top: 10px; }
+
+.mood-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+.axis-v {
+  writing-mode: vertical-rl;
+  font-size: 0.62rem;
+  flex-shrink: 0;
+}
+.axis-v:first-child { transform: rotate(180deg); }
+
 .mood-meter {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 8px;
+  gap: 12px;
+  width: 100%;
+  max-width: 350px;
   aspect-ratio: 1;
+  margin: 0 auto;
+  min-height: 0;
 }
 
 .quadrant {
-  border-radius: 16px;
+  border-radius: 24px;
   cursor: pointer;
-  transition: transform 0.15s, opacity 0.15s;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px;
+  padding: 16px 8px;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  touch-action: manipulation;
+  transition: transform 0.22s var(--ease-spring), box-shadow 0.22s ease, filter 0.2s ease;
 }
 
-.quadrant:active { transform: scale(0.95); opacity: 0.8; }
+.quadrant::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, transparent 60%);
+  border-radius: inherit;
+  pointer-events: none;
+}
 
-.quadrant-red    { background: rgba(239,68,68,0.25); border: 2px solid rgba(239,68,68,0.5); }
-.quadrant-yellow { background: rgba(234,179,8,0.25); border: 2px solid rgba(234,179,8,0.5); }
-.quadrant-blue   { background: rgba(59,130,246,0.25); border: 2px solid rgba(59,130,246,0.5); }
-.quadrant-green  { background: rgba(34,197,94,0.25); border: 2px solid rgba(34,197,94,0.5); }
+.quadrant:active { transform: scale(0.93); filter: brightness(0.88); }
+/* En dispositivos con puntero (desktop): leve realce al pasar por encima */
+@media (hover: hover) {
+  .quadrant:hover { transform: translateY(-3px); }
+}
 
-/* Record button */
-.record-btn {
-  width: 80px; height: 80px;
-  border-radius: 50%;
-  background: #6366f1;
+.q-icon {
+  margin-bottom: 8px;
+  line-height: 0;
+}
+.q-icon svg {
+  width: clamp(30px, 8vw, 44px);
+  height: clamp(30px, 8vw, 44px);
+  stroke-width: 1.75;
+}
+.quadrant-red .q-icon    { color: var(--red); }
+.quadrant-yellow .q-icon { color: var(--yellow); }
+.quadrant-blue .q-icon   { color: var(--blue); }
+.quadrant-green .q-icon  { color: var(--green); }
+.q-title {
+  font-size: clamp(0.8rem, 2.8vw, 0.95rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.q-desc {
+  font-size: clamp(0.68rem, 2.2vw, 0.8rem);
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+.quadrant-red {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--red-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  box-shadow: 0 10px 26px rgba(120, 100, 70, 0.10);
+}
+.quadrant-red .q-title { color: var(--red); }
+
+.quadrant-yellow {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--yellow-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--yellow) 35%, transparent);
+  box-shadow: 0 10px 26px rgba(120, 100, 70, 0.10);
+}
+.quadrant-yellow .q-title { color: var(--yellow); }
+
+.quadrant-blue {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--blue-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);
+  box-shadow: 0 10px 26px rgba(120, 100, 70, 0.10);
+}
+.quadrant-blue .q-title { color: var(--blue); }
+
+.quadrant-green {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--green-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--green) 35%, transparent);
+  box-shadow: 0 10px 26px rgba(120, 100, 70, 0.10);
+}
+.quadrant-green .q-title { color: var(--green); }
+
+/* ─── Botones genéricos ─────────────────────────────────────────────── */
+
+.back-btn {
+  align-self: flex-start;
+  min-height: 44px;
+  min-width: 88px;
+  padding: 8px 6px;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  background: none;
   border: none;
   cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: transform 0.1s, background 0.2s;
-  user-select: none;
-  -webkit-user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  touch-action: manipulation;
+  transition: color 0.18s ease, transform 0.18s var(--ease-spring);
 }
-.record-btn.recording { background: #ef4444; transform: scale(1.1); }
+.back-btn:active { color: var(--text); transform: scale(0.96); }
+.back-btn svg { width: 18px; height: 18px; stroke-width: 1.75; }
 
-/* Waveform canvas */
-#waveform { width: 100%; height: 48px; }
-
-/* Emotion word chips */
-.emotion-chip {
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
+.btn-primary {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--indigo-light), var(--indigo));
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
-  font-size: 0.9rem;
+  box-shadow: 0 10px 26px rgba(91, 83, 201, 0.28);
+  transition: transform 0.18s var(--ease-spring), box-shadow 0.2s ease;
 }
-.emotion-chip:hover { background: rgba(255,255,255,0.18); }
-.emotion-chip.selected { background: #6366f1; border-color: #6366f1; }
+.btn-primary:active { transform: scale(0.97); box-shadow: 0 6px 16px rgba(91, 83, 201, 0.22); }
 
-/* Tab bar */
+.btn-ghost {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s var(--ease-spring);
+}
+.btn-ghost:active { background: var(--surface-2); transform: scale(0.98); }
+
+/* ─── Pantalla de palabras ──────────────────────────────────────────── */
+
+#screen-words h2,
+#screen-confirm h2,
+#screen-history h2,
+#screen-patterns h2,
+.analyzing-title {
+  font-size: clamp(1.2rem, 5.5vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+#words-title { text-align: center; }
+
+/* .emotion-chip y .emotion-chip-sm los usa la pantalla de Patrones */
+.emotion-chip {
+  padding: 11px 20px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  touch-action: manipulation;
+  transition: transform 0.18s var(--ease-spring), background 0.18s ease, box-shadow 0.18s ease;
+}
+.emotion-chip-sm { padding: 7px 14px; min-height: 0; font-size: 0.8rem; }
+.emotion-chip:active { transform: scale(0.95); background: var(--surface-2); }
+.emotion-chip.selected {
+  background: linear-gradient(135deg, var(--indigo-light), var(--indigo));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(91, 83, 201, 0.28);
+}
+
+/* ─── Sub-matriz de emociones ───────────────────────────────────────── */
+
+.submatrix-sub { text-align: center; color: var(--text-dim); font-size: 0.9rem; margin: -8px 0 14px; }
+.submatrix-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+.submatrix-stage.q-rojo     { --q-base: var(--red);    --q-soft: var(--red-soft);    --q-ink: var(--red); }
+.submatrix-stage.q-amarillo { --q-base: var(--yellow); --q-soft: var(--yellow-soft); --q-ink: #8A6618; }
+.submatrix-stage.q-azul     { --q-base: var(--blue);   --q-soft: var(--blue-soft);   --q-ink: var(--blue); }
+.submatrix-stage.q-verde    { --q-base: var(--green);  --q-soft: var(--green-soft);  --q-ink: var(--green); }
+.submatrix-axis { color: var(--text-dim); font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase; text-align: center; margin: 0; }
+.submatrix-row { display: flex; align-items: stretch; gap: 8px; margin: 9px 0; }
+.axis-side { writing-mode: vertical-rl; transform: rotate(180deg); flex-shrink: 0; }
+.submatrix-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; flex: 1; }
+.sub-emotion {
+  --t: 0;
+  border: 1px solid color-mix(in srgb, var(--q-base) 30%, transparent);
+  border-radius: 14px;
+  padding: 14px 6px;
+  font: inherit; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer;
+  color: var(--q-ink);
+  background: color-mix(in srgb, var(--q-base) calc(18% + var(--t) * 70%), var(--q-soft));
+  transition: transform 0.18s var(--ease-spring), box-shadow 0.18s ease;
+}
+.sub-emotion.is-intense { color: #fff; }
+.sub-emotion:active { transform: scale(0.94); }
+.sub-emotion.selected { box-shadow: 0 0 0 2.5px var(--q-base); transform: scale(1.04); }
+@media (hover: hover) { .sub-emotion:hover { transform: translateY(-2px); } }
+
+/* ─── Transición morfológica · cuadrante ⇄ sub-matriz ───────────────────
+   El cuadrante elegido se clona en un panel que crece físicamente hasta el
+   rect exacto de la rejilla destino (sin fade) y, ya posicionado, se
+   subdivide en los 12 cuadros. app.js mide los rects y orquesta los tiempos
+   con la Web Animations API. Todo transform/opacity → 60fps en GPU.        */
+
+#morph-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;                /* sobre las pantallas, bajo el tab-bar (100) */
+  pointer-events: none;
+  display: none;
+}
+#morph-layer.active { display: block; }
+
+/* Panel = clon visual del cuadrante. app.js lo dimensiona al rect destino y
+   lo arranca transform-escalado al rect del cuadrante de origen. */
+.morph-panel {
+  position: fixed;
+  border-radius: 14px;        /* estado final; app.js anima el radio en el morph */
+  transform-origin: top left;
+  will-change: transform;
+  box-shadow: 0 18px 40px rgba(120, 100, 70, 0.16);
+}
+.morph-panel::before {        /* mismo brillo glossy que el cuadrante */
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, transparent 60%);
+  pointer-events: none;
+}
+.morph-panel.q-rojo {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--red-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+}
+.morph-panel.q-amarillo {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--yellow-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--yellow) 35%, transparent);
+}
+.morph-panel.q-azul {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--blue-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);
+}
+.morph-panel.q-verde {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--green-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--green) 35%, transparent);
+}
+[data-theme="dark"] .morph-panel::before { opacity: 0.06; }
+[data-theme="dark"] .morph-panel { box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5); }
+
+/* El cuadrante de origen se oculta al instante: el panel lo cubre exacto. */
+.quadrant.morph-source { visibility: hidden; }
+
+/* Toda la sección del mood meter se retira tras el panel: los cuadrantes no
+   elegidos encogen + difuminan, y las etiquetas de eje se desvanecen. */
+.mood-section.morphing-out .quadrant:not(.morph-source) {
+  opacity: 0;
+  transform: scale(0.86);
+  transition: transform 0.34s var(--ease-soft), opacity 0.26s ease;
+}
+.mood-section.morphing-out .axis-label {
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+/* La cabecera se aparta apenas mientras la pantalla "se abre". */
+.mood-header.morphing-out {
+  opacity: 0;
+  transform: translateY(-14px);
+  transition: transform 0.34s var(--ease-soft), opacity 0.26s ease;
+}
+
+/* Pantalla de palabras: entrada normal al volver desde grabar… */
+#screen-words.active { animation: screenIn 0.32s var(--ease-soft) both; }
+/* …pero durante el morph la orquesta app.js, sin el fade de pantalla. */
+body.morphing #screen-words.active { animation: none; }
+/* En la subdivisión la pantalla se eleva sobre el panel: los cuadros emergen
+   por encima y el panel sólo asoma por los huecos hasta quedar cubierto. */
+#screen-words.morph-revealing { z-index: 95; }
+
+/* Subdivisión: los 12 cuadros emergen escalonados desde el centro. */
+.submatrix-grid.revealing .sub-emotion {
+  animation: tileEmerge 0.34s var(--ease-spring) backwards;
+}
+@keyframes tileEmerge {
+  from { opacity: 0; transform: scale(0.72); }
+  to   { opacity: 1; transform: scale(1); }
+}
+/* Recomposición (reversa): los cuadros colapsan y dejan ver el panel. */
+.submatrix-grid.collapsing .sub-emotion {
+  animation: tileCollapse 0.24s var(--ease-soft) forwards;
+}
+@keyframes tileCollapse {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.74); }
+}
+/* Al recomponerse, la cabecera de la pantalla de palabras se desvanece suave. */
+#screen-words.morph-leaving .back-btn,
+#screen-words.morph-leaving .mira-words,
+#screen-words.morph-leaving #words-title,
+#screen-words.morph-leaving #words-subtitle,
+#screen-words.morph-leaving .submatrix-axis {
+  opacity: 0;
+  transition: opacity 0.26s ease;
+}
+/* El toggle de tema se aparta junto con la cabecera durante el morph. */
+.theme-toggle.morphing-out {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.32s ease;
+}
+
+/* La cabecera de la pantalla de palabras entra suave en la fase 2. */
+#screen-words.morph-revealing .back-btn,
+#screen-words.morph-revealing #words-title,
+#screen-words.morph-revealing #words-subtitle {
+  animation: wordsChromeIn 0.42s var(--ease-soft) backwards;
+}
+@keyframes wordsChromeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Las etiquetas de eje aparecen al final, sutiles. */
+#screen-words .submatrix-axis {
+  animation: axisFade 0.4s var(--ease-soft) 0.1s both;
+}
+@keyframes axisFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Pantalla de grabación ─────────────────────────────────────────── */
+
+#screen-record.active { animation-duration: 0.18s; }
+
+.record-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  width: 100%;
+}
+
+.emotion-badge {
+  font-size: 0.72rem;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(91, 83, 201, 0.10);
+  border: 1px solid rgba(91, 83, 201, 0.22);
+  color: var(--indigo);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#waveform {
+  width: 100%;
+  max-width: 320px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.record-btn {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--indigo-light), var(--indigo));
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  touch-action: none;
+  box-shadow: 0 10px 30px rgba(91, 83, 201, 0.35);
+  transition: transform 0.2s var(--ease-spring), background 0.25s ease;
+}
+.record-btn svg { width: 30px; height: 30px; color: #fff; }
+/* Anillo decorativo — al grabar pulsa con scale/opacity (GPU), no box-shadow */
+.record-btn::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(91, 83, 201, 0.22);
+  pointer-events: none;
+}
+.record-btn:active { transform: scale(0.92); }
+
+.record-btn.recording {
+  background: linear-gradient(135deg, #E06050, var(--red));
+  transform: scale(1.08);
+  box-shadow: 0 12px 35px rgba(194, 85, 59, 0.40);
+}
+.record-btn.recording::before {
+  border-color: rgba(194, 85, 59, 0.40);
+  animation: recPulse 1.5s ease-out infinite;
+}
+@keyframes recPulse {
+  0%   { transform: scale(1);   opacity: 0.9; }
+  70%  { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.record-status {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin: 0;
+  text-align: center;
+  min-height: 1.2em;
+  transition: color 0.2s ease;
+}
+
+/* ─── Selector Hablar/Escribir ──────────────────────────────────────── */
+
+.mode-switch { display: inline-flex; background: var(--surface-2); border-radius: 999px;
+  padding: 4px; gap: 2px; }
+.mode-btn { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
+  background: none; color: var(--text-dim); font: inherit; font-size: 0.85rem; font-weight: 600;
+  padding: 8px 18px; border-radius: 999px; transition: background 0.2s var(--ease-soft), color 0.2s ease; }
+.mode-btn svg { width: 16px; height: 16px; }
+.mode-btn.active { background: linear-gradient(135deg, var(--indigo-light), var(--indigo));
+  color: #fff; box-shadow: 0 4px 12px rgba(91, 83, 201, 0.3); }
+
+/* ─── Paneles Hablar/Escribir ───────────────────────────────────────── */
+
+.record-pane { display: flex; flex-direction: column; align-items: center; gap: 18px;
+  width: 100%; animation: paneIn 0.32s var(--ease-soft) both; }
+@keyframes paneIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ─── Temporizador de grabación ─────────────────────────────────────── */
+
+.record-timer { font-variant-numeric: tabular-nums; font-size: 1.2rem; font-weight: 800;
+  color: var(--red); margin: 0; }
+
+/* ─── Botón Cancelar ────────────────────────────────────────────────── */
+
+.btn-cancel { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-dim); font: inherit; font-size: 0.85rem;
+  font-weight: 600; padding: 8px 18px; border-radius: 999px; cursor: pointer;
+  transition: transform 0.18s var(--ease-spring), background 0.18s ease; }
+.btn-cancel svg { width: 15px; height: 15px; }
+@media (hover: hover) { .btn-cancel:hover { background: var(--surface-2); color: var(--text); } }
+.btn-cancel:active { transform: scale(0.96); background: var(--surface-2); }
+
+/* ─── Textarea modo texto ───────────────────────────────────────────── */
+
+#text-input { width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 14px 16px; font: inherit; font-size: 1rem; color: var(--text);
+  resize: none; outline: none; transition: border-color 0.18s ease; }
+#text-input:focus { border-color: var(--indigo); }
+#text-input::placeholder { color: var(--text-dim); }
+#pane-texto .btn-primary { margin-top: 4px; }
+
+/* ─── Pantalla de análisis (mascota) ────────────────────────────────── */
+
+#screen-analyzing.active {
+  align-items: center;
+  justify-content: center;
+}
+
+.analyzing-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
+
+/* El orbe: una fuente de luz viva. Capas (de atrás hacia delante):
+   ::before  → aura volumétrica difusa que respira
+   .orb-core → núcleo cálido que palpita detrás de Mira
+   .orb-ring → tres anillos que se expanden y desvanecen, desfasados
+   .orb-mote → motas de pensamiento que orbitan
+   .mira     → la mascota, con su propia capa de "pensar"
+   Todo se anima con transform/opacity → 60fps en GPU.                   */
+.mascota-orb {
+  position: relative;
+  width: 216px;
+  height: 216px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  isolation: isolate;
+}
+/* Aura volumétrica: dos paradas de color para un degradado más orgánico,
+   con un leve desenfoque que la vuelve niebla de luz en vez de un disco. */
+.mascota-orb::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 46%,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 42%, transparent) 0%,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 20%, transparent) 38%,
+    transparent 72%);
+  filter: blur(7px);
+  transform-origin: center;
+  animation: glowPulse 5.4s var(--ease-soft) infinite;
+  z-index: -2;
+}
+
+/* Núcleo: un latido cálido y suave justo detrás de Mira. */
+.orb-core {
+  position: absolute;
+  width: 122px;
+  height: 122px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 88%, white) 0%,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 34%, transparent) 56%,
+    transparent 78%);
+  filter: blur(3px);
+  transform-origin: center;
+  animation: orbCorePulse 4.2s var(--ease-soft) infinite;
+  z-index: -1;
+}
+
+/* Aura: anillos concéntricos que respiran hacia afuera, con un borde
+   suavizado para que se sientan ondas de luz, no aros sólidos. */
+.orb-ring {
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--orb-color, var(--indigo-light)) 78%, transparent);
+  box-shadow: 0 0 14px -2px color-mix(in srgb, var(--orb-color, var(--indigo-light)) 55%, transparent);
+  opacity: 0;
+  transform-origin: center;
+  will-change: transform, opacity;
+  animation: orbBreathe 4.8s var(--ease-soft) infinite;
+  z-index: -1;
+}
+/* nth-child(of) cuenta solo .orb-ring: inmune a spans insertados antes. */
+.orb-ring:nth-child(2 of .orb-ring) { animation-delay: 1.6s; }
+.orb-ring:nth-child(3 of .orb-ring) { animation-delay: 3.2s; }
+@keyframes orbBreathe {
+  0%   { opacity: 0;    transform: scale(0.72); }
+  18%  { opacity: 0.5; }
+  60%  { opacity: 0.22; }
+  100% { opacity: 0;    transform: scale(1.34); }
+}
+
+/* Motas de pensamiento: pequeñas luces que orbitan y titilan a la vez.
+   Cada una combina dos animaciones a ritmos primos — órbita (rotate) y
+   brillo (opacity) — para que el movimiento nunca se sienta robótico. */
+.orb-mote {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 30%, white) 0%,
+    var(--orb-color, var(--indigo-light)) 70%);
+  box-shadow: 0 0 12px 2px color-mix(in srgb, var(--orb-color, var(--indigo-light)) 65%, transparent);
+  will-change: transform, opacity;
+}
+/* La capa de deriva orbita; un pseudo-elemento dentro haría falta para
+   componer dos transforms, así que cada mota gira sobre su propio anillo. */
+.spark-1 { animation: moteOrbit 13s linear infinite, moteGlow 3.1s ease-in-out infinite; }
+.spark-2 { width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px;
+  animation: moteOrbit 16s linear infinite reverse, moteGlow 3.1s ease-in-out infinite 0.9s; }
+.spark-3 { width: 6px; height: 6px; margin: -3px 0 0 -3px;
+  animation: moteOrbit 19s linear infinite, moteGlow 3.1s ease-in-out infinite 1.7s; }
+
+.analyzing-status {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  margin: 4px 0 0;
+  min-height: 1.3em;
+  /* La animación de aparición la dispara JS al rotar el mensaje. */
+  animation: statusFade 0.5s var(--ease-soft);
+  transition: opacity 0.32s var(--ease-soft), transform 0.32s var(--ease-soft);
+}
+/* Estado "saliendo": JS lo aplica un instante antes de cambiar el texto. */
+.analyzing-status.is-leaving {
+  opacity: 0;
+  transform: translateY(-5px);
+}
+
+.analyzing-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 280px;
+  margin-top: 22px;
+}
+
+@keyframes glowPulse {
+  0%, 100% { transform: scale(0.92); opacity: 0.62; }
+  50%      { transform: scale(1.08); opacity: 1; }
+}
+@keyframes orbCorePulse {
+  0%, 100% { transform: scale(0.94); opacity: 0.78; }
+  50%      { transform: scale(1.07); opacity: 1; }
+}
+/* Órbita: un giro completo de un punto que parte desplazado del centro. */
+@keyframes moteOrbit {
+  from { transform: rotate(0deg)   translateX(86px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(86px) rotate(-360deg); }
+}
+@keyframes moteGlow {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 1; }
+}
+@keyframes statusFade {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Mira mientras "piensa": una capa propia (.mira-think-sway) que añade un
+   balanceo lento de cavilación, sin tocar las keyframes base de la mascota.
+   Se compone con .mira-anim/.mira-tilt/.mira-face (capas internas) porque
+   cada capa anima una sola transform a su propio ritmo. */
+.mira-thinking .mira-think-sway {
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 88%;
+  will-change: transform;
+  animation: miraPonder 7s var(--ease-soft) infinite;
+}
+/* Cavilación: un vaivén amplio y lento, como sopesar una idea, rematado
+   por un micro-acercamiento — el "ajá" — antes de volver a la calma. */
+@keyframes miraPonder {
+  0%   { transform: rotate(0deg)    scale(1); }
+  22%  { transform: rotate(3.2deg)  scale(1.012); }
+  50%  { transform: rotate(-2.6deg) scale(0.992); }
+  74%  { transform: rotate(1.6deg)  scale(1.026); }
+  88%  { transform: rotate(-0.6deg) scale(1.004); }
+  100% { transform: rotate(0deg)    scale(1); }
+}
+
+/* La cuarta mota: completa el enjambre orbital, en su propio anillo. */
+.spark-4 {
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  animation: moteOrbit 22s linear infinite reverse,
+             moteGlow 3.1s ease-in-out infinite 2.4s;
+}
+
+/* Modo noche: el orbe gana un poco de luminosidad contra el fondo oscuro. */
+[data-theme="dark"] .orb-core {
+  background: radial-gradient(circle at 50% 42%,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 84%, white) 0%,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 38%, transparent) 56%,
+    transparent 80%);
+}
+[data-theme="dark"] .orb-mote {
+  box-shadow: 0 0 16px 3px color-mix(in srgb, var(--orb-color, var(--indigo-light)) 72%, transparent);
+}
+[data-theme="dark"] .mascota-orb::before {
+  background: radial-gradient(circle at 50% 46%,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 50%, transparent) 0%,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 24%, transparent) 40%,
+    transparent 74%);
+}
+
+/* Movimiento reducido: el orbe se queda quieto pero compuesto. El bloque
+   global congela las animaciones; aquí fijamos un estado de reposo digno —
+   anillos visibles, motas repartidas alrededor en vez de apiladas. */
+@media (prefers-reduced-motion: reduce) {
+  .mascota-orb::before { transform: scale(1); opacity: 0.7 !important; }
+  .orb-core            { transform: scale(1); opacity: 0.92 !important; }
+  .orb-ring            { opacity: 0.26 !important; transform: scale(1); }
+  .orb-ring:nth-child(2 of .orb-ring) { opacity: 0.16 !important; transform: scale(1.16); }
+  .orb-ring:nth-child(3 of .orb-ring) { opacity: 0 !important; }
+  .orb-mote { opacity: 0.85 !important; }
+  .spark-1 { transform: rotate(35deg)  translateX(86px); }
+  .spark-2 { transform: rotate(140deg) translateX(86px); }
+  .spark-3 { transform: rotate(225deg) translateX(86px); }
+  .spark-4 { transform: rotate(310deg) translateX(86px); }
+  .mira-thinking .mira-think-sway { transform: rotate(0deg) scale(1); }
+}
+
+/* ─── Pantalla de confirmación ──────────────────────────────────────── */
+
+.confirm-body {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* HÉROE — Mira, su mensaje de feedback y la valoración, como una sola unidad.
+   Ocupa el espacio disponible y se centra: el mensaje es la pieza dominante. */
+.confirm-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  animation: confirmHeroIn 0.6s var(--ease-soft) both;
+}
+.mira-hero { margin: 0 auto 8px; }
+
+@keyframes confirmHeroIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.info-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 15px 16px;
+}
+.info-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 5px;
+}
+
+/* Altura fija: el cuerpo hace scroll si el mensaje es largo, las acciones
+   quedan siempre ancladas y visibles. */
+#screen-confirm.active { height: 100dvh; min-height: unset; }
+
+.confirm-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+/* Entrada escalonada de las tarjetas (resumen RULER e historial) */
+.scroll-list .entry-card { animation: cardIn 0.42s var(--ease-soft) both; }
+.scroll-list .entry-card:nth-child(1) { animation-delay: 0.04s; }
+.scroll-list .entry-card:nth-child(2) { animation-delay: 0.10s; }
+.scroll-list .entry-card:nth-child(3) { animation-delay: 0.16s; }
+.scroll-list .entry-card:nth-child(4) { animation-delay: 0.22s; }
+.scroll-list .entry-card:nth-child(5) { animation-delay: 0.28s; }
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Listas con scroll (historial / patrones) ──────────────────────── */
+
+.scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.entry-card {
+  border-radius: 18px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 5px solid;
+  transition: transform 0.15s ease;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.entry-card:active { transform: scale(0.99); }
+.entry-card.rojo     { border-left-color: var(--red);    box-shadow: -2px 0 14px rgba(120, 100, 70, 0.10); }
+.entry-card.amarillo { border-left-color: var(--yellow); box-shadow: -2px 0 14px rgba(120, 100, 70, 0.10); }
+.entry-card.azul     { border-left-color: var(--blue);   box-shadow: -2px 0 14px rgba(120, 100, 70, 0.10); }
+.entry-card.verde    { border-left-color: var(--green);  box-shadow: -2px 0 14px rgba(120, 100, 70, 0.10); }
+
+.empty-state,
+.error-state {
+  text-align: center;
+  margin-top: 40px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.empty-state { color: var(--text-dim); }
+.error-state { color: #C2553B; }
+
+/* ─── Chat ──────────────────────────────────────────────────────────── */
+
+.chat-header {
+  padding: calc(var(--safe-t) + 18px) 18px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.chat-header h2 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text); }
+.chat-header p { margin: 2px 0 0; font-size: 0.78rem; color: var(--text-dim); }
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-bubble {
+  padding: 11px 14px;
+  max-width: 80%;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text);
+  animation: bubbleIn 0.32s var(--ease-spring) both;
+}
+.bubble-user {
+  background: var(--indigo);
+  color: #fff;
+  border-radius: 18px 18px 4px 18px;
+  box-shadow: 0 4px 14px rgba(91, 83, 201, 0.22);
+}
+.bubble-ai {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 18px 18px 18px 4px;
+}
+.bubble-thinking { color: var(--text-dim); letter-spacing: 0.15em; }
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 14px 16px calc(var(--tab-h) + var(--safe-b) + 14px);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+#chat-input {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 1rem; /* >=16px evita el zoom automático de iOS */
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.18s ease;
+}
+#chat-input::placeholder { color: var(--text-dim); }
+#chat-input:focus { border-color: var(--indigo); }
+
+.btn-send {
+  height: 46px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--indigo-light), var(--indigo));
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.16s var(--ease-spring), opacity 0.18s ease;
+}
+.btn-send:active { transform: scale(0.95); }
+.btn-send:disabled { opacity: 0.5; cursor: default; }
+
+/* ─── Barra de navegación ───────────────────────────────────────────── */
+
 #tab-bar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  background: rgba(15,23,42,0.95);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255,255,255,0.08);
+  height: calc(var(--tab-h) + var(--safe-b));
+  padding-bottom: var(--safe-b);
+  background: rgba(252, 248, 240, 0.88);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
   display: flex;
-  height: 64px;
   z-index: 100;
 }
 
 .tab-btn {
   flex: 1;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 0;
   font-size: 0.65rem;
-  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  background: none;
+  border: none;
   cursor: pointer;
-  transition: color 0.15s;
-  background: none; border: none;
+  position: relative;
+  touch-action: manipulation;
+  transition: color 0.2s ease;
 }
-.tab-btn.active { color: #6366f1; }
-
-/* Entry card */
-.entry-card {
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
-  background: rgba(255,255,255,0.05);
-  border-left: 4px solid;
+.tab-btn svg {
+  width: 22px; height: 22px;
+  stroke-width: 1.75;
+  flex-shrink: 0;
+  transition: transform 0.24s var(--ease-spring);
 }
-.entry-card.rojo    { border-color: var(--red); }
-.entry-card.amarillo { border-color: var(--yellow); }
-.entry-card.azul    { border-color: var(--blue); }
-.entry-card.verde   { border-color: var(--green); }
-
-/* Chat bubbles */
-.bubble-user { background: #6366f1; border-radius: 16px 16px 4px 16px; }
-.bubble-ai   { background: rgba(255,255,255,0.08); border-radius: 16px 16px 16px 4px; }
-
-/* Crisis modal */
-#crisis-modal {
-  position: fixed; inset: 0; z-index: 200;
-  background: rgba(239,68,68,0.15);
-  backdrop-filter: blur(8px);
-  align-items: center; justify-content: center;
-}
-
-/* Screen transitions */
-.screen { display: none; }
-.screen.active { display: flex; flex-direction: column; }
-
-/* Loading spinner */
-.spinner {
-  width: 20px; height: 20px;
-  border: 2px solid rgba(255,255,255,0.2);
-  border-top-color: #6366f1;
+.tab-btn:active svg { transform: scale(0.86); }
+.tab-btn.active { color: var(--indigo-light); }
+.tab-btn.active svg { transform: scale(1.18) translateY(-2px); }
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: calc(var(--safe-b) + 5px);
+  width: 4px; height: 4px;
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  background: var(--indigo);
+  box-shadow: 0 0 8px rgba(91, 83, 201, 0.9);
+  animation: dotIn 0.3s var(--ease-spring);
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes dotIn {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+/* ─── Modal de crisis ───────────────────────────────────────────────── */
+
+#crisis-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(74, 67, 56, 0.45);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+#crisis-modal.visible {
+  display: flex;
+  animation: modalFade 0.28s ease-out;
+}
+#crisis-modal.visible .crisis-card {
+  animation: modalCard 0.4s var(--ease-spring) both;
+}
+
+.crisis-card {
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+  border-radius: 26px;
+  padding: 24px;
+  max-width: 360px;
+  width: 100%;
+  max-height: 90dvh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(120, 100, 70, 0.16);
+}
+.crisis-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--red);
+}
+.crisis-text {
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+.crisis-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.crisis-line {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: background 0.18s ease, transform 0.18s var(--ease-spring);
+}
+.crisis-line:active { background: var(--surface-2); transform: scale(0.98); }
+.crisis-icon {
+  width: 42px; height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(194, 85, 59, 0.12);
+  color: var(--red);
+}
+.crisis-icon svg { width: 22px; height: 22px; }
+.crisis-line-body { display: flex; flex-direction: column; }
+.crisis-line-name { color: var(--text); font-weight: 600; font-size: 0.92rem; }
+.crisis-line-meta { color: var(--red); font-size: 0.76rem; margin-top: 2px; }
+
+@keyframes modalFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modalCard {
+  from { opacity: 0; transform: scale(0.9) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+
+/* ─── HÉROE · mensaje de feedback de Mira ───────────────────────────────
+   El mensaje es la pieza central de la confirmación: grande, cálido y muy
+   legible. El color del cuadrante (.q-*) lo tiñe sin gritar.               */
+
+.feedback-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+}
+
+/* Acento de la emoción identificada — píldora discreta sobre el mensaje. */
+.feedback-emotion {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  padding: 5px 13px 5px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--feedback-accent) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--feedback-accent) 30%, transparent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--feedback-accent);
+  animation: feedbackEmotionIn 0.5s var(--ease-spring) 0.12s both;
+}
+.feedback-emotion-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--feedback-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--feedback-accent) 22%, transparent);
+}
+@keyframes feedbackEmotionIn {
+  from { opacity: 0; transform: scale(0.86); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* El mensaje en sí — la pieza dominante: grande, con mucho aire alrededor. */
+.feedback-msg {
+  margin: 0;
+  max-width: 23rem;
+  font-size: clamp(1.26rem, 5.3vw, 1.4rem);
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -0.014em;
+  color: var(--text);
+  text-wrap: balance;
+  animation: feedbackMsgIn 0.55s var(--ease-soft) 0.16s both;
+}
+
+@keyframes feedbackMsgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Color de acento por cuadrante (cae al índigo de Mira si no hay cuadrante).
+   .modo-apoyo mantiene el índigo aunque el cuadrante tiña la píldora.       */
+.feedback-card            { --feedback-accent: var(--indigo); }
+.feedback-card.q-rojo     { --feedback-accent: var(--red); }
+.feedback-card.q-amarillo { --feedback-accent: var(--yellow); }
+.feedback-card.q-azul     { --feedback-accent: var(--blue); }
+.feedback-card.q-verde    { --feedback-accent: var(--green); }
+
+/* ─── SECUNDARIO · valoración + transcripción + detalles ────────────────
+   Todo aquí es deliberadamente más ligero y pequeño que el héroe: un solo
+   bloque calmado, claramente subordinado al mensaje de Mira.               */
+
+.confirm-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 14px 8px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  animation: confirmHeroIn 0.6s var(--ease-soft) 0.1s both;
+}
+
+.feedback-rating {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+/* En el héroe, la valoración es una reacción directa al mensaje de Mira:
+   centrada bajo él y entrando después, no un control suelto de la zona baja. */
+.confirm-hero .feedback-rating {
+  justify-content: center;
+  margin-top: 22px;
+  animation: confirmHeroIn 0.5s var(--ease-soft) 0.34s both;
+}
+.feedback-rating-q { font-size: 0.82rem; color: var(--text-dim); }
+.feedback-rating-btns { display: flex; gap: 8px; }
+.rate-btn {
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: transform 0.16s var(--ease-spring), background 0.18s ease, color 0.18s ease;
+}
+.rate-btn svg { width: 17px; height: 17px; }
+.rate-btn:active { transform: scale(0.92); }
+.rate-btn.active {
+  background: linear-gradient(135deg, var(--indigo-light), var(--indigo));
+  border-color: transparent;
+  color: #fff;
+}
+
+.confirm-text-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+#confirm-text {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text);
+  resize: none;
+  outline: none;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+#confirm-text:focus {
+  border-color: var(--indigo);
+  background: var(--surface);
+}
+#btn-reanalyze { margin-top: 10px; }
+
+.btn-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin: 0;
+  padding: 6px 2px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+.btn-details:active { color: var(--indigo); }
+.btn-details svg { width: 15px; height: 15px; }
+
+.insight-line {
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.5;
+  margin: 0 0 6px;
+  padding-left: 14px;
+  position: relative;
+}
+.insight-line::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--indigo-light);
+}
+.insight-line:last-child { margin-bottom: 0; }
+
+/* Modo noche · confirmación. Los colores de acento ya se adaptan vía las
+   variables --red/--yellow/… ; aquí solo subimos un punto el contraste de
+   la píldora de emoción para que no se hunda en la superficie oscura.      */
+[data-theme="dark"] .feedback-emotion {
+  background: color-mix(in srgb, var(--feedback-accent) 20%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--feedback-accent) 42%, transparent);
+}
+[data-theme="dark"] .confirm-secondary {
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Animación de entrada por palabras ─────────────────────────────── */
+
+.word-anim .word {
+  display: inline-block;
+  animation: wordIn 0.5s var(--ease-soft) both;
+}
+@keyframes wordIn {
+  from { opacity: 0; transform: translateY(0.5em); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Skeleton loaders ──────────────────────────────────────────────── */
+
+.skeleton-card {
+  border-radius: 18px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--surface-2);
+}
+.skel-line {
+  height: 12px;
+  border-radius: 6px;
+  margin: 6px 0;
+  background: linear-gradient(90deg, var(--surface-2) 25%, #EDE3CF 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+.skel-line.w-60 { width: 60%; }
+.skel-line.w-40 { width: 40%; }
+.skel-line.w-80 { width: 80%; }
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* ─── Movimiento reducido (accesibilidad) ───────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Mira queda completamente quieta, recta y a tamaño natural. */
+  .mira, .mira-anim, .mira-tilt, .mira-face {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* ─── Error de arranque ─────────────────────────────────────────────── */
+.app-error {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  background: var(--bg);
+  text-align: center;
+  color: var(--text-dim);
+}
+
+/* ─── Bottom drawer ─────────────────────────────────────────────────── */
+.drawer { position: fixed; inset: 0; z-index: 250; display: none; }
+.drawer.open { display: block; }
+.drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(74, 67, 56, 0.45);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: modalFade 0.24s ease-out;
+}
+.drawer-sheet {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  max-height: 84dvh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 26px 26px 0 0;
+  padding: 10px 20px calc(var(--safe-b) + 26px);
+  box-shadow: 0 -16px 50px rgba(120, 100, 70, 0.20);
+  animation: drawerUp 0.36s var(--ease-soft) both;
+  touch-action: none;
+}
+@keyframes drawerUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.drawer-handle {
+  display: block;
+  width: 44px; height: 5px;
+  margin: 0 auto 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+}
+.drawer-sheet h3 {
+  margin: 0 0 14px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  text-transform: capitalize;
+}
+#drawer-content { display: flex; flex-direction: column; gap: 12px; }
+.app-error .btn-primary { max-width: 240px; }
+
+/* ─── Modo noche — lo activa el toggle (data-theme) o, por defecto, la
+   preferencia del sistema; el script inline del <head> resuelve cuál. ─── */
+:root[data-theme="dark"] {
+  --red: #E08A6E;        --red-soft: #3A2A24;
+  --yellow: #D9B25C;     --yellow-soft: #3A3324;
+  --blue: #8FAAC4;       --blue-soft: #26303A;
+  --green: #8FB592;      --green-soft: #26332A;
+  --indigo: #8C84E6;
+  --indigo-light: #A49CEC;
+  --bg: #1A1714;
+  --surface: #23201B;
+  --surface-2: #2E2A23;
+  --border: rgba(220, 200, 170, 0.12);
+  --text: #EDE6D8;
+  --text-dim: #A89E8E;
+  --quad-hi: #2E2A23;
+}
+[data-theme="dark"] body {
+  background-image:
+    radial-gradient(circle at 50% -15%, rgba(140, 132, 230, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 100% 110%, rgba(224, 138, 110, 0.08) 0%, transparent 45%);
+}
+/* La superposición glossy de los cuadrantes sería un brillo raro en oscuro */
+[data-theme="dark"] .quadrant::before { opacity: 0.06; }
+[data-theme="dark"] .t-soft { color: #C3BBA9; }
+[data-theme="dark"] .submatrix-stage.q-amarillo { --q-ink: var(--yellow); }
+[data-theme="dark"] #screen-mood h1 {
+  background-image: linear-gradient(135deg, var(--indigo-light) 0%, var(--indigo) 60%, var(--red) 120%);
+}
+[data-theme="dark"] .error-state { color: var(--red); }
+[data-theme="dark"] .track { background: rgba(200, 180, 150, 0.10); }
+[data-theme="dark"] #tab-bar { background: rgba(35, 32, 27, 0.88); }
+[data-theme="dark"] .skel-line {
+  background: linear-gradient(90deg, var(--surface-2) 25%, #3A352B 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+}
+
+/* ─── Toggle de tema (esquina del Mood Meter) ───────────────────────── */
+#screen-mood { position: relative; }
+.theme-toggle {
+  position: absolute;
+  top: calc(var(--safe-t) + 10px);
+  right: 6px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.16s var(--ease-spring), color 0.18s ease, background 0.18s ease;
+}
+.theme-toggle svg { width: 19px; height: 19px; }
+.theme-toggle:active { transform: scale(0.9); }
+@media (hover: hover) {
+  .theme-toggle:hover { color: var(--text); background: var(--surface-2); }
+}
