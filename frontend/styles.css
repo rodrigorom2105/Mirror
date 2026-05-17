@@ -819,6 +819,13 @@ body {
   border: 1px solid var(--border);
   border-left: 5px solid;
   transition: transform 0.15s ease;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .entry-card:active { transform: scale(0.99); }
 .entry-card.rojo     { border-left-color: var(--red);    box-shadow: -2px 0 14px rgba(120, 100, 70, 0.10); }
@@ -1210,4 +1217,49 @@ body {
   text-align: center;
   color: var(--text-dim);
 }
+
+/* ─── Bottom drawer ─────────────────────────────────────────────────── */
+.drawer { position: fixed; inset: 0; z-index: 250; display: none; }
+.drawer.open { display: block; }
+.drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(74, 67, 56, 0.45);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: modalFade 0.24s ease-out;
+}
+.drawer-sheet {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  max-height: 84dvh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 26px 26px 0 0;
+  padding: 10px 20px calc(var(--safe-b) + 26px);
+  box-shadow: 0 -16px 50px rgba(120, 100, 70, 0.20);
+  animation: drawerUp 0.36s var(--ease-soft) both;
+  touch-action: none;
+}
+@keyframes drawerUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.drawer-handle {
+  display: block;
+  width: 44px; height: 5px;
+  margin: 0 auto 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+}
+.drawer-sheet h3 {
+  margin: 0 0 14px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  text-transform: capitalize;
+}
+#drawer-content { display: flex; flex-direction: column; gap: 12px; }
 .app-error .btn-primary { max-width: 240px; }

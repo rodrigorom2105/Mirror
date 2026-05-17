@@ -699,19 +699,28 @@ async function loadHistory() {
       return;
     }
     container.removeAttribute("aria-busy");
-    container.innerHTML = data.entries.map(e => `
-      <div class="entry-card ${e.cuadrante || 'azul'}">
+    container.innerHTML = data.entries.map((e, i) => `
+      <button type="button" class="entry-card ${e.cuadrante || 'azul'}" data-idx="${i}">
         <div class="flex justify-between items-start">
           <div>
-            <span class="font-medium t-strong">${e.emocion_primaria || "—"}</span>
-            ${e.emociones_secundarias ? `<span class="text-xs t-dim ml-2">${Array.isArray(e.emociones_secundarias) ? e.emociones_secundarias.join(", ") : e.emociones_secundarias}</span>` : ""}
+            <span class="font-medium t-strong">${escapeHTML(e.emocion_primaria) || "—"}</span>
+            ${e.emociones_secundarias ? `<span class="text-xs t-dim ml-2">${Array.isArray(e.emociones_secundarias) ? e.emociones_secundarias.map(escapeHTML).join(", ") : escapeHTML(e.emociones_secundarias)}</span>` : ""}
           </div>
           <span class="text-xs t-dim">${formatDate(e.saved_at)}</span>
         </div>
-        <p class="text-sm t-dim mt-1">${e.resumen || ""}</p>
-        ${e.disparador ? `<p class="text-xs t-faint mt-1">↳ ${e.disparador}</p>` : ""}
-      </div>
+        <p class="text-sm t-dim mt-1">${escapeHTML(e.resumen) || ""}</p>
+        ${e.disparador ? `<p class="text-xs t-faint mt-1">↳ ${escapeHTML(e.disparador)}</p>` : ""}
+      </button>
     `).join("");
+    container.querySelectorAll(".entry-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const entry = data.entries[Number(card.dataset.idx)];
+        const fb = entry.feedback_mensaje
+          ? `<div class="info-card"><p class="info-label">Lo que te dijo Mira</p><p class="text-sm t-soft">${escapeHTML(entry.feedback_mensaje)}</p></div>`
+          : "";
+        openDrawer(entry.emocion_primaria || "Registro", rulerDetailHTML(entry) + fb);
+      });
+    });
   } catch (err) {
     container.removeAttribute("aria-busy");
     container.innerHTML = `<p class="error-state">No se pudo cargar el historial.</p>`;
@@ -821,6 +830,87 @@ function appendBubble(text, role) {
   return div;
 }
 
+// ─── BOTTOM DRAWER ────────────────────────────────────────────────────────────
+let drawerLastFocus = null;
+let drawerDragStartY = 0;
+
+const drawerEl = document.getElementById("drawer");
+const drawerSheet = drawerEl.querySelector(".drawer-sheet");
+
+function openDrawer(title, contentHTML) {
+  document.getElementById("drawer-title").textContent = title;
+  document.getElementById("drawer-content").innerHTML = contentHTML;
+  drawerLastFocus = document.activeElement;
+  drawerEl.classList.add("open");
+  drawerEl.setAttribute("aria-hidden", "false");
+  if (window.lucide) lucide.createIcons();
+  document.getElementById("drawer-close").focus();
+  document.addEventListener("keydown", onDrawerKeydown);
+}
+
+function closeDrawer() {
+  drawerEl.classList.remove("open");
+  drawerEl.setAttribute("aria-hidden", "true");
+  document.removeEventListener("keydown", onDrawerKeydown);
+  if (drawerLastFocus && typeof drawerLastFocus.focus === "function") drawerLastFocus.focus();
+}
+
+function onDrawerKeydown(e) {
+  if (e.key === "Escape") { closeDrawer(); return; }
+  if (e.key !== "Tab") return;
+  // Atrapa el foco dentro del drawer (cumple la promesa de aria-modal).
+  const f = drawerSheet.querySelectorAll('a[href], button, [tabindex]:not([tabindex="-1"])');
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+drawerEl.querySelector(".drawer-backdrop").addEventListener("click", closeDrawer);
+document.getElementById("drawer-close").addEventListener("click", closeDrawer);
+
+// Arrastrar la hoja hacia abajo para cerrarla.
+drawerSheet.addEventListener("pointerdown", e => {
+  if (e.target.closest("#drawer-content")) return; // no interferir con el scroll
+  drawerDragStartY = e.clientY;
+  drawerSheet.setPointerCapture(e.pointerId);
+});
+drawerSheet.addEventListener("pointerup", e => {
+  if (drawerDragStartY && e.clientY - drawerDragStartY > 80) closeDrawer();
+  drawerDragStartY = 0;
+});
+drawerSheet.addEventListener("pointercancel", () => { drawerDragStartY = 0; });
+
+/** HTML del desglose RULER de una entrada — reusable en resultados e historial. */
+function rulerDetailHTML(ruler) {
+  const colorMap = { rojo: "q-rojo", amarillo: "q-amarillo", azul: "q-azul", verde: "q-verde" };
+  const sec = ruler.emociones_secundarias;
+  const secArr = Array.isArray(sec) ? sec : (sec ? [sec] : []);
+  const pens = Array.isArray(ruler.pensamientos) ? ruler.pensamientos : [];
+  return `
+    <div class="info-card">
+      <p class="info-label">Emoción principal</p>
+      <p class="text-lg font-bold ${colorMap[ruler.cuadrante] || ''}">${escapeHTML(ruler.emocion_primaria) || "—"}</p>
+      ${secArr.length ? `<p class="text-xs t-dim mt-1">${secArr.map(escapeHTML).join(", ")}</p>` : ""}
+    </div>
+    <div class="info-card">
+      <p class="info-label">Disparador</p>
+      <p class="text-sm t-strong">${escapeHTML(ruler.disparador) || "—"}</p>
+    </div>
+    <div class="info-card">
+      <p class="info-label">Intensidad</p>
+      <div class="flex gap-1 mt-1">
+        ${Array.from({ length: 10 }, (_, i) => `<div class="h-2 flex-1 rounded-full ${i < (ruler.intensidad || 0) ? "bg-indigo-500" : "track"}"></div>`).join("")}
+      </div>
+    </div>
+    <div class="info-card">
+      <p class="info-label">Resumen</p>
+      <p class="text-sm t-soft italic">${escapeHTML(ruler.resumen) || "—"}</p>
+    </div>
+    ${pens.length ? `<div class="info-card"><p class="info-label mb-2">Pensamientos</p>${pens.map(t => `<p class="text-sm t-soft">• ${escapeHTML(t)}</p>`).join("")}</div>` : ""}
+  `;
+}
+
 // ─── CRISIS MODAL ─────────────────────────────────────────────────────────────
 let crisisLastFocus = null;
 
@@ -851,6 +941,14 @@ function onCrisisKeydown(e) {
 }
 
 document.getElementById("btn-close-crisis").addEventListener("click", closeCrisisModal);
+
+// ─── SEGURIDAD ────────────────────────────────────────────────────────────────
+/** Escapa texto del usuario / LLM antes de interpolarlo en HTML. */
+function escapeHTML(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
 
 // ─── UTILIDADES DE ANIMACIÓN ──────────────────────────────────────────────────
 

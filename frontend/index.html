@@ -228,6 +228,16 @@
     </div>
   </div>
 
+  <!-- ─── Bottom drawer reutilizable ─────────────────────────────────────── -->
+  <div id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-backdrop"></div>
+    <div class="drawer-sheet" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <button class="drawer-handle" id="drawer-close" type="button" aria-label="Cerrar"></button>
+      <h3 id="drawer-title"></h3>
+      <div id="drawer-content"></div>
+    </div>
+  </div>
+
   <!-- ─── Navegación ─────────────────────────────────────────────────────── -->
   <nav id="tab-bar" aria-label="Navegación principal">
     <button class="tab-btn active" data-screen="mood" type="button">
