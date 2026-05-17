@@ -364,7 +364,7 @@ function drawWaveform() {
   const w = waveCanvas.clientWidth;
   const h = waveCanvas.clientHeight;
   waveCtx.clearRect(0, 0, w, h);
-  waveCtx.strokeStyle = "#818cf8";
+  waveCtx.strokeStyle = "#7D72D6";
   waveCtx.lineWidth = 2.5;
   waveCtx.lineJoin = "round";
   waveCtx.beginPath();
@@ -462,7 +462,10 @@ function showAnalyzingError(message) {
 }
 
 document.getElementById("btn-analyzing-retry").addEventListener("click", () => {
-  if (state.audioBlob) analyzeEntry(state.audioBlob);
+  // En modo texto se reintenta el texto; el audioBlob puede haber quedado de un
+  // intento de voz previo sin limpiar (la navegación por tabs no lo resetea).
+  if (state.inputMode === "texto" && state.pendingText) analyzeText(state.pendingText);
+  else if (state.audioBlob) analyzeEntry(state.audioBlob);
   else if (state.pendingText) analyzeText(state.pendingText);
 });
 document.getElementById("btn-analyzing-back").addEventListener("click", () => {
