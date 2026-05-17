@@ -988,6 +988,29 @@ function skeletonCards(n = 4) {
     </div>`).join("");
 }
 
+// ─── TEMA CLARO / OSCURO ──────────────────────────────────────────────────────
+// El script inline del <head> ya aplicó `data-theme` antes del render. Aquí solo
+// se sincroniza el ícono del toggle y se persiste la elección del usuario.
+const themeToggle = document.getElementById("theme-toggle");
+
+function syncThemeUI() {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  themeToggle.innerHTML = `<i data-lucide="${dark ? "sun" : "moon"}" aria-hidden="true"></i>`;
+  if (window.lucide) lucide.createIcons();
+  const meta = document.getElementById("theme-color-meta");
+  if (meta) meta.content = dark ? "#1A1714" : "#F7F1E6";
+}
+
+function toggleTheme() {
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("mirror-theme", next);
+  syncThemeUI();
+}
+
+themeToggle.addEventListener("click", toggleTheme);
+syncThemeUI();
+
 // ─── ARRANQUE ─────────────────────────────────────────────────────────────────
 
 // Anima la tagline de la pantalla principal al cargar la app.

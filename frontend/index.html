@@ -6,8 +6,18 @@
   <title>Mirror — Autoconocimiento Emocional</title>
   <meta name="description" content="Mirror es tu espejo emocional privado: registra cómo te sientes con tu voz, descubre patrones y conócete mejor. Todo 100% local." />
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#F7F1E6" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#1A1714" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" id="theme-color-meta" content="#F7F1E6" />
+  <script>
+    // Aplica el tema antes del primer render (evita parpadeo). Sin una
+    // elección guardada, sigue la preferencia del sistema operativo.
+    (function () {
+      var t = localStorage.getItem("mirror-theme")
+        || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", t);
+      var m = document.getElementById("theme-color-meta");
+      if (m) m.content = t === "dark" ? "#1A1714" : "#F7F1E6";
+    })();
+  </script>
   <link rel="icon" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="stylesheet" href="/tailwind.css" />
@@ -17,6 +27,10 @@
 
   <!-- ─── REGISTRAR · Mood Meter ─────────────────────────────────────────── -->
   <div id="screen-mood" class="screen active">
+    <button id="theme-toggle" class="theme-toggle" type="button"
+      aria-label="Cambiar entre tema claro y oscuro">
+      <i data-lucide="moon" aria-hidden="true"></i>
+    </button>
     <header class="mood-header">
       <div class="mira mira-sm" aria-hidden="true">
         <div class="mira-anim"><div class="mira-tilt"><div class="mira-face">

@@ -1283,40 +1283,64 @@ body {
 #drawer-content { display: flex; flex-direction: column; gap: 12px; }
 .app-error .btn-primary { max-width: 240px; }
 
-/* ─── Modo noche (sigue la preferencia del sistema) ─────────────────── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --red: #E08A6E;        --red-soft: #3A2A24;
-    --yellow: #D9B25C;     --yellow-soft: #3A3324;
-    --blue: #8FAAC4;       --blue-soft: #26303A;
-    --green: #8FB592;      --green-soft: #26332A;
-    --indigo: #8C84E6;
-    --indigo-light: #A49CEC;
-    --bg: #1A1714;
-    --surface: #23201B;
-    --surface-2: #2E2A23;
-    --border: rgba(220, 200, 170, 0.12);
-    --text: #EDE6D8;
-    --text-dim: #A89E8E;
-    --quad-hi: #2E2A23;
-  }
-  body {
-    background-image:
-      radial-gradient(circle at 50% -15%, rgba(140, 132, 230, 0.12) 0%, transparent 60%),
-      radial-gradient(circle at 100% 110%, rgba(224, 138, 110, 0.08) 0%, transparent 45%);
-  }
-  /* La superposición glossy de los cuadrantes sería un brillo raro en oscuro */
-  .quadrant::before { opacity: 0.06; }
-  .t-soft { color: #C3BBA9; }
-  .submatrix-stage.q-amarillo { --q-ink: var(--yellow); }
-  #screen-mood h1 {
-    background-image: linear-gradient(135deg, var(--indigo-light) 0%, var(--indigo) 60%, var(--red) 120%);
-  }
-  .error-state { color: var(--red); }
-  .track { background: rgba(200, 180, 150, 0.10); }
-  #tab-bar { background: rgba(35, 32, 27, 0.88); }
-  .skel-line {
-    background: linear-gradient(90deg, var(--surface-2) 25%, #3A352B 50%, var(--surface-2) 75%);
-    background-size: 200% 100%;
-  }
+/* ─── Modo noche — lo activa el toggle (data-theme) o, por defecto, la
+   preferencia del sistema; el script inline del <head> resuelve cuál. ─── */
+:root[data-theme="dark"] {
+  --red: #E08A6E;        --red-soft: #3A2A24;
+  --yellow: #D9B25C;     --yellow-soft: #3A3324;
+  --blue: #8FAAC4;       --blue-soft: #26303A;
+  --green: #8FB592;      --green-soft: #26332A;
+  --indigo: #8C84E6;
+  --indigo-light: #A49CEC;
+  --bg: #1A1714;
+  --surface: #23201B;
+  --surface-2: #2E2A23;
+  --border: rgba(220, 200, 170, 0.12);
+  --text: #EDE6D8;
+  --text-dim: #A89E8E;
+  --quad-hi: #2E2A23;
+}
+[data-theme="dark"] body {
+  background-image:
+    radial-gradient(circle at 50% -15%, rgba(140, 132, 230, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 100% 110%, rgba(224, 138, 110, 0.08) 0%, transparent 45%);
+}
+/* La superposición glossy de los cuadrantes sería un brillo raro en oscuro */
+[data-theme="dark"] .quadrant::before { opacity: 0.06; }
+[data-theme="dark"] .t-soft { color: #C3BBA9; }
+[data-theme="dark"] .submatrix-stage.q-amarillo { --q-ink: var(--yellow); }
+[data-theme="dark"] #screen-mood h1 {
+  background-image: linear-gradient(135deg, var(--indigo-light) 0%, var(--indigo) 60%, var(--red) 120%);
+}
+[data-theme="dark"] .error-state { color: var(--red); }
+[data-theme="dark"] .track { background: rgba(200, 180, 150, 0.10); }
+[data-theme="dark"] #tab-bar { background: rgba(35, 32, 27, 0.88); }
+[data-theme="dark"] .skel-line {
+  background: linear-gradient(90deg, var(--surface-2) 25%, #3A352B 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+}
+
+/* ─── Toggle de tema (esquina del Mood Meter) ───────────────────────── */
+#screen-mood { position: relative; }
+.theme-toggle {
+  position: absolute;
+  top: calc(var(--safe-t) + 10px);
+  right: 6px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.16s var(--ease-spring), color 0.18s ease, background 0.18s ease;
+}
+.theme-toggle svg { width: 19px; height: 19px; }
+.theme-toggle:active { transform: scale(0.9); }
+@media (hover: hover) {
+  .theme-toggle:hover { color: var(--text); background: var(--surface-2); }
 }
