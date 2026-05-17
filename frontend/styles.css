@@ -126,7 +126,7 @@ body {
 .mira-sm      { width: 66px;  height: 66px; }
 .mira-lg      { width: 172px; height: 172px; }
 .mira-confirm { width: 56px;  height: 56px; }
-.mira-hero    { width: 124px; height: 124px; }
+.mira-hero    { width: 104px; height: 104px; }
 
 .mira-anim, .mira-tilt, .mira-face {
   width: 100%;
@@ -975,9 +975,13 @@ body.morphing #screen-words.active { animation: none; }
 
 .confirm-body {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
 }
 
 /* HÉROE — Mira animada + el mensaje de feedback como pieza central.
@@ -998,7 +1002,7 @@ body.morphing #screen-words.active { animation: none; }
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-dim);
-  margin: 10px 0 14px;
+  margin: 8px 0 11px;
 }
 
 @keyframes confirmHeroIn {
@@ -1021,9 +1025,17 @@ body.morphing #screen-words.active { animation: none; }
   margin: 0 0 5px;
 }
 
-#screen-confirm.active { justify-content: space-between; }
+/* Altura fija: el cuerpo hace scroll si el mensaje es largo, las acciones
+   quedan siempre ancladas y visibles. */
+#screen-confirm.active { height: 100dvh; min-height: unset; }
 
-.confirm-actions { display: flex; flex-direction: column; gap: 10px; }
+.confirm-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+}
 
 /* Entrada escalonada de las tarjetas (resumen RULER e historial) */
 .scroll-list .entry-card { animation: cardIn 0.42s var(--ease-soft) both; }
@@ -1353,7 +1365,7 @@ body.morphing #screen-words.active { animation: none; }
 .feedback-msg {
   margin: 0;
   max-width: 22rem;
-  font-size: clamp(1.18rem, 5.4vw, 1.42rem);
+  font-size: clamp(1.05rem, 4.7vw, 1.25rem);
   line-height: 1.5;
   font-weight: 600;
   letter-spacing: -0.012em;
