@@ -504,7 +504,7 @@ body {
    lo arranca transform-escalado al rect del cuadrante de origen. */
 .morph-panel {
   position: fixed;
-  border-radius: 22px;
+  border-radius: 14px;        /* estado final; app.js anima el radio en el morph */
   transform-origin: top left;
   will-change: transform;
   box-shadow: 0 18px 40px rgba(120, 100, 70, 0.16);
@@ -544,17 +544,17 @@ body {
 .mood-section.morphing-out .quadrant:not(.morph-source) {
   opacity: 0;
   transform: scale(0.86);
-  transition: transform 0.44s var(--ease-soft), opacity 0.34s ease;
+  transition: transform 0.34s var(--ease-soft), opacity 0.26s ease;
 }
 .mood-section.morphing-out .axis-label {
   opacity: 0;
-  transition: opacity 0.32s ease;
+  transition: opacity 0.24s ease;
 }
 /* La cabecera se aparta apenas mientras la pantalla "se abre". */
 .mood-header.morphing-out {
   opacity: 0;
   transform: translateY(-14px);
-  transition: transform 0.44s var(--ease-soft), opacity 0.32s ease;
+  transition: transform 0.34s var(--ease-soft), opacity 0.26s ease;
 }
 
 /* Pantalla de palabras: entrada normal al volver desde grabar… */
@@ -567,7 +567,7 @@ body.morphing #screen-words.active { animation: none; }
 
 /* Subdivisión: los 12 cuadros emergen escalonados desde el centro. */
 .submatrix-grid.revealing .sub-emotion {
-  animation: tileEmerge 0.46s var(--ease-spring) backwards;
+  animation: tileEmerge 0.34s var(--ease-spring) backwards;
 }
 @keyframes tileEmerge {
   from { opacity: 0; transform: scale(0.72); }
@@ -575,7 +575,7 @@ body.morphing #screen-words.active { animation: none; }
 }
 /* Recomposición (reversa): los cuadros colapsan y dejan ver el panel. */
 .submatrix-grid.collapsing .sub-emotion {
-  animation: tileCollapse 0.3s var(--ease-soft) forwards;
+  animation: tileCollapse 0.24s var(--ease-soft) forwards;
 }
 @keyframes tileCollapse {
   from { opacity: 1; transform: scale(1); }
@@ -601,7 +601,7 @@ body.morphing #screen-words.active { animation: none; }
 #screen-words.morph-revealing .back-btn,
 #screen-words.morph-revealing #words-title,
 #screen-words.morph-revealing #words-subtitle {
-  animation: wordsChromeIn 0.5s var(--ease-soft) backwards;
+  animation: wordsChromeIn 0.42s var(--ease-soft) backwards;
 }
 @keyframes wordsChromeIn {
   from { opacity: 0; transform: translateY(-8px); }
@@ -610,7 +610,7 @@ body.morphing #screen-words.active { animation: none; }
 
 /* Las etiquetas de eje aparecen al final, sutiles. */
 #screen-words .submatrix-axis {
-  animation: axisFade 0.5s var(--ease-soft) 0.18s both;
+  animation: axisFade 0.4s var(--ease-soft) 0.1s both;
 }
 @keyframes axisFade {
   from { opacity: 0; }
@@ -984,26 +984,18 @@ body.morphing #screen-words.active { animation: none; }
   gap: 18px;
 }
 
-/* HÉROE — Mira animada + el mensaje de feedback como pieza central.
-   El conjunto entra como una sola unidad, de abajo hacia arriba. */
+/* HÉROE — Mira, su mensaje de feedback y la valoración, como una sola unidad.
+   Ocupa el espacio disponible y se centra: el mensaje es la pieza dominante. */
 .confirm-hero {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
   animation: confirmHeroIn 0.6s var(--ease-soft) both;
 }
-.mira-hero { margin: 0 auto -6px; }
-
-/* Eyebrow discreto: ya no compite con el mensaje, solo lo introduce. */
-.confirm-eyebrow {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  margin: 8px 0 11px;
-}
+.mira-hero { margin: 0 auto 8px; }
 
 @keyframes confirmHeroIn {
   from { opacity: 0; transform: translateY(14px); }
@@ -1361,14 +1353,14 @@ body.morphing #screen-words.active { animation: none; }
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* El mensaje en sí — grande, con aire generoso. La cita lo enmarca. */
+/* El mensaje en sí — la pieza dominante: grande, con mucho aire alrededor. */
 .feedback-msg {
   margin: 0;
-  max-width: 22rem;
-  font-size: clamp(1.05rem, 4.7vw, 1.25rem);
-  line-height: 1.5;
+  max-width: 23rem;
+  font-size: clamp(1.26rem, 5.3vw, 1.4rem);
+  line-height: 1.4;
   font-weight: 600;
-  letter-spacing: -0.012em;
+  letter-spacing: -0.014em;
   color: var(--text);
   text-wrap: balance;
   animation: feedbackMsgIn 0.55s var(--ease-soft) 0.16s both;
@@ -1408,6 +1400,13 @@ body.morphing #screen-words.active { animation: none; }
   justify-content: space-between;
   gap: 10px;
 }
+/* En el héroe, la valoración es una reacción directa al mensaje de Mira:
+   centrada bajo él y entrando después, no un control suelto de la zona baja. */
+.confirm-hero .feedback-rating {
+  justify-content: center;
+  margin-top: 22px;
+  animation: confirmHeroIn 0.5s var(--ease-soft) 0.34s both;
+}
 .feedback-rating-q { font-size: 0.82rem; color: var(--text-dim); }
 .feedback-rating-btns { display: flex; gap: 8px; }
 .rate-btn {
@@ -1428,11 +1427,6 @@ body.morphing #screen-words.active { animation: none; }
   color: #fff;
 }
 
-/* Separador sutil entre la valoración y el resto del bloque secundario. */
-.confirm-edit {
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
 .confirm-text-label {
   display: block;
   font-size: 0.7rem;

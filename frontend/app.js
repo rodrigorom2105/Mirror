@@ -77,6 +77,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 // el cuadrante. Web Animations API + transform/opacity → 60fps en GPU.
 let morphing = false;
 const EXPAND_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const QUADRANT_RADIUS = 24;  // .quadrant border-radius — referencia del morph
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -115,7 +116,7 @@ function populateSubmatrix(quadrant) {
     // Stagger desde el centro de la rejilla 3×4: el retraso crece con la distancia.
     const row = Math.floor(idx / 3), col = idx % 3;
     const dist = Math.hypot(row - 1.5, col - 1);
-    tile.style.animationDelay = `${(0.03 + dist * 0.05).toFixed(3)}s`;
+    tile.style.animationDelay = `${(0.02 + dist * 0.035).toFixed(3)}s`;
     tile.textContent = word;
     tile.addEventListener("click", () => {
       document.querySelectorAll(".sub-emotion").forEach(c => c.classList.remove("selected"));
@@ -147,6 +148,15 @@ function morphTransform(srcRect, destRect) {
   const dx = srcRect.left - destRect.left;
   const dy = srcRect.top - destRect.top;
   return `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+}
+
+// Radio del panel en el extremo "cuadrante": como ahí está escalado de forma
+// no uniforme, un radio asimétrico (H/V) compensa la escala para que la
+// esquina renderice a QUADRANT_RADIUS px en ambos ejes — igual que el cuadrante.
+function morphStartRadius(srcRect, destRect) {
+  const sx = srcRect.width / destRect.width;
+  const sy = srcRect.height / destRect.height;
+  return `${(QUADRANT_RADIUS / sx).toFixed(1)}px / ${(QUADRANT_RADIUS / sy).toFixed(1)}px`;
 }
 
 // Crea el panel-clon del cuadrante, dimensionado a `rect`.
@@ -192,13 +202,15 @@ function morphToSubmatrix(q) {
   header.classList.add("morphing-out");
   themeToggle.classList.add("morphing-out");
 
-  // Fase 1 — el panel crece físicamente hasta el rect de la rejilla.
+  // Fase 1 — el panel crece físicamente hasta el rect de la rejilla. El radio
+  // se anima contra la escala: al estar el panel encogido el radio es mayor,
+  // así las esquinas se ven redondeadas en TODO momento, nunca se "cuadran".
   const expand = panel.animate(
     [
-      { transform: morphTransform(qRect, gridRect) },
-      { transform: "translate(0px, 0px) scale(1, 1)" },
+      { transform: morphTransform(qRect, gridRect), borderRadius: morphStartRadius(qRect, gridRect) },
+      { transform: "translate(0px, 0px) scale(1, 1)", borderRadius: "14px" },
     ],
-    { duration: 430, easing: EXPAND_EASE, fill: "forwards" }
+    { duration: 320, easing: EXPAND_EASE, fill: "forwards" }
   );
 
   expand.onfinish = () => {
@@ -222,7 +234,7 @@ function morphToSubmatrix(q) {
       q.classList.remove("morph-source");
       document.body.classList.remove("morphing");
       morphing = false;
-    }, 600);
+    }, 440);
   };
 }
 
@@ -270,10 +282,10 @@ function morphBackToMood() {
 
     const contract = panel.animate(
       [
-        { transform: "translate(0px, 0px) scale(1, 1)" },
-        { transform: morphTransform(qRect, gridRect) },
+        { transform: "translate(0px, 0px) scale(1, 1)", borderRadius: "14px" },
+        { transform: morphTransform(qRect, gridRect), borderRadius: morphStartRadius(qRect, gridRect) },
       ],
-      { duration: 420, easing: EXPAND_EASE, fill: "forwards" }
+      { duration: 320, easing: EXPAND_EASE, fill: "forwards" }
     );
     contract.onfinish = () => {
       panel.remove();
@@ -285,7 +297,7 @@ function morphBackToMood() {
       const heading = moodScreen.querySelector("[data-screen-title]");
       if (heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
     };
-  }, 460);
+  }, 300);
 }
 
 document.getElementById("btn-back-words").addEventListener("click", morphBackToMood);

@@ -182,8 +182,9 @@
 
   <!-- ─── Confirmar ──────────────────────────────────────────────────────── -->
   <div id="screen-confirm" class="screen">
+    <h2 data-screen-title class="sr-only">La reflexión de Mira</h2>
     <div class="confirm-body">
-      <!-- ── HÉROE: Mira animada + el mensaje de feedback ── -->
+      <!-- ── HÉROE: Mira, su mensaje de feedback y la valoración del mensaje ── -->
       <div class="confirm-hero">
         <div class="mira mira-hero" aria-hidden="true">
           <div class="mira-anim"><div class="mira-tilt"><div class="mira-face">
@@ -191,14 +192,10 @@
               onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />
           </div></div></div>
         </div>
-        <h2 data-screen-title class="confirm-eyebrow">Esto es lo que entendí</h2>
         <div id="feedback-card" class="feedback-card"></div>
-      </div>
-
-      <!-- ── SECUNDARIO: valoración, transcripción editable y detalles ── -->
-      <div class="confirm-secondary">
+        <!-- Valoración: reacción directa al mensaje de Mira de arriba. -->
         <div id="feedback-rating" class="feedback-rating">
-          <span class="feedback-rating-q">¿Te ayudó este mensaje?</span>
+          <span class="feedback-rating-q">¿Te ayudó esto?</span>
           <div class="feedback-rating-btns">
             <button id="rate-yes" class="rate-btn" type="button" aria-label="Sí, me ayudó">
               <i data-lucide="thumbs-up" aria-hidden="true"></i>
@@ -208,7 +205,10 @@
             </button>
           </div>
         </div>
+      </div>
 
+      <!-- ── SECUNDARIO: transcripción editable y detalles ── -->
+      <div class="confirm-secondary">
         <div class="confirm-edit">
           <label for="confirm-text" class="confirm-text-label">Lo que entendí que dijiste</label>
           <textarea id="confirm-text" rows="3"></textarea>
