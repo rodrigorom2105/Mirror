@@ -77,12 +77,14 @@ document.querySelectorAll(".quadrant").forEach(q => {
     const meter = document.querySelector(".mood-meter");
     q.classList.add("zooming");
     meter.classList.add("dimmed");
+    // 380ms: se cambia de pantalla antes de que el zoom (0.42s) termine;
+    // el "snap" del cuadrante al quitar la clase queda oculto tras screen-words.
     setTimeout(() => {
       q.classList.remove("zooming");
       meter.classList.remove("dimmed");
       renderSubmatrix(q.dataset.q);
       showScreen("words");
-    }, 260);
+    }, 380);
   });
 });
 
@@ -107,7 +109,10 @@ function renderSubmatrix(quadrant) {
     tile.type = "button";
     tile.className = "sub-emotion" + (t >= 0.55 ? " is-intense" : "");
     tile.style.setProperty("--t", t.toFixed(3));
-    tile.style.animationDelay = `${idx * 0.03}s`;
+    // Emergen desde el centro de la rejilla 3x4: el delay crece con la distancia.
+    const row = Math.floor(idx / 3), col = idx % 3;
+    const dist = Math.hypot(row - 1.5, col - 1);
+    tile.style.animationDelay = `${0.04 + dist * 0.05}s`;
     tile.textContent = word;
     tile.addEventListener("click", () => {
       document.querySelectorAll(".sub-emotion").forEach(c => c.classList.remove("selected"));

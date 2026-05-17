@@ -441,11 +441,6 @@ body {
   box-shadow: 0 8px 20px rgba(91, 83, 201, 0.28);
 }
 
-@keyframes chipIn {
-  from { opacity: 0; transform: translateY(10px) scale(0.92); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
 /* ─── Sub-matriz de emociones ───────────────────────────────────────── */
 
 .submatrix-sub { text-align: center; color: var(--text-dim); font-size: 0.9rem; margin: -8px 0 14px; }
@@ -469,22 +464,43 @@ body {
   color: var(--q-ink);
   background: color-mix(in srgb, var(--q-base) calc(18% + var(--t) * 70%), var(--q-soft));
   transition: transform 0.18s var(--ease-spring), box-shadow 0.18s ease;
-  animation: chipIn 0.4s var(--ease-soft) both;
+  animation: tileEmerge 0.5s var(--ease-spring) both;
 }
 .sub-emotion.is-intense { color: #fff; }
 .sub-emotion:active { transform: scale(0.94); }
 .sub-emotion.selected { box-shadow: 0 0 0 2.5px var(--q-base); transform: scale(1.04); }
 @media (hover: hover) { .sub-emotion:hover { transform: translateY(-2px); } }
 
-/* Zoom del cuadrante al entrar a la sub-matriz */
-.mood-meter.dimmed .quadrant:not(.zooming) { opacity: 0.15; transform: scale(0.9); }
-.quadrant.zooming { transform: scale(1.35); z-index: 2; }
-/* Acotado a .dimmed: solo durante el zoom, sin pisar la curva spring normal */
-.mood-meter.dimmed .quadrant { transition: transform 0.26s var(--ease-soft), opacity 0.26s ease; }
-#screen-words.active { animation: submatrixIn 0.4s var(--ease-soft) both; }
-@keyframes submatrixIn {
-  from { opacity: 0; transform: scale(0.86); }
+/* Transición orgánica cuadrante → sub-matriz */
+.mood-meter.dimmed .quadrant:not(.zooming) {
+  opacity: 0;
+  transform: scale(0.4);
+}
+.mood-meter.dimmed .quadrant {
+  transition: transform 0.34s var(--ease-soft), opacity 0.3s ease;
+}
+.quadrant.zooming {
+  transform: scale(2.7);
+  opacity: 0;
+  z-index: 2;
+  transition: transform 0.42s var(--ease-soft), opacity 0.42s ease 0.06s;
+}
+#screen-words.active { animation: screenIn 0.3s var(--ease-soft) both; }
+
+/* Las emociones emergen escalonadas desde el centro (animación en .sub-emotion). */
+@keyframes tileEmerge {
+  from { opacity: 0; transform: scale(0.55); }
   to   { opacity: 1; transform: scale(1); }
+}
+
+/* Las etiquetas de eje y el subtítulo aparecen al final, sutiles */
+#screen-words .submatrix-axis,
+#screen-words .submatrix-sub {
+  animation: axisFade 0.5s var(--ease-soft) 0.34s both;
+}
+@keyframes axisFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ─── Pantalla de grabación ─────────────────────────────────────────── */
