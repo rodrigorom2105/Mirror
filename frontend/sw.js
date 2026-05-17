@@ -1,8 +1,7 @@
-const CACHE = "mirror-v4";
+const CACHE = "mirror-v5";
 const ASSETS = ["/", "/app.js", "/styles.css", "/tailwind.css", "/assets/mira.png"];
 
-// Precarga tolerante: un asset ausente (p. ej. la mascota aún no subida)
-// no debe abortar la instalación del Service Worker.
+// Precarga tolerante: un asset ausente no aborta la instalación del SW.
 self.addEventListener("install", e => {
   self.skipWaiting();
   e.waitUntil(
@@ -10,7 +9,7 @@ self.addEventListener("install", e => {
   );
 });
 
-// Limpia versiones de caché anteriores para que un deploy nuevo se vea de inmediato.
+// Limpia versiones de caché anteriores para que un deploy se vea de inmediato.
 self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys()
@@ -20,8 +19,18 @@ self.addEventListener("activate", e => {
 });
 
 self.addEventListener("fetch", e => {
-  if (e.request.url.includes("/api/")) return; // nunca cachear llamadas API
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
-  );
+  const url = e.request.url;
+  // El catálogo de emociones SÍ se cachea: red primero, caché como respaldo offline.
+  if (url.includes("/api/emotions")) {
+    e.respondWith(
+      fetch(e.request).then(r => {
+        const copy = r.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+        return r;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+  if (url.includes("/api/")) return; // el resto de la API nunca se cachea
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });

@@ -2,32 +2,8 @@
 const API = ""; // same origin — backend serves frontend at root
 
 // ─── RULER DATA ───────────────────────────────────────────────────────────────
-const QUADRANTS = {
-  rojo: {
-    name: "Alta tensión", icon: "flame",
-    emotions: ["nervioso","inquieto","preocupado","tenso","ansioso","irritado",
-               "molesto","frustrado","estresado","abrumado","enojado","furioso"],
-    axisTop: "Más alterado", axisBottom: "Más calmado", axisSide: "Más desagradable",
-  },
-  amarillo: {
-    name: "Energía positiva", icon: "sun",
-    emotions: ["optimista","motivado","animado","alegre","feliz","entusiasmado",
-               "inspirado","orgulloso","emocionado","sorprendido","eufórico","radiante"],
-    axisTop: "Más intenso", axisBottom: "Más sereno", axisSide: "Más agradable",
-  },
-  azul: {
-    name: "Baja energía", icon: "cloud-rain",
-    emotions: ["desganado","aburrido","nostálgico","melancólico","desanimado","decepcionado",
-               "triste","solo","agotado","vacío","derrotado","abatido"],
-    axisTop: "Más leve", axisBottom: "Más hundido", axisSide: "Más desagradable",
-  },
-  verde: {
-    name: "Paz interior", icon: "leaf",
-    emotions: ["cómodo","contento","satisfecho","tranquilo","relajado","calmado",
-               "sereno","agradecido","pleno","seguro","en paz","descansado"],
-    axisTop: "Más activo", axisBottom: "Más profundo", axisSide: "Más agradable",
-  },
-};
+// El catálogo es la fuente única del backend; se obtiene de GET /api/emotions.
+let QUADRANTS = null;
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let state = {
@@ -39,6 +15,40 @@ let state = {
   rulerResult: null,
   inputMode: "voz",
 };
+
+// ─── HORA LOCAL ───────────────────────────────────────────────────────────────
+// ISO 8601 con offset local (ej. 2026-05-17T21:34:00-06:00).
+function localISOTime() {
+  const d = new Date();
+  const off = -d.getTimezoneOffset(); // minutos respecto a UTC
+  const sign = off >= 0 ? "+" : "-";
+  const pad = n => String(Math.floor(Math.abs(n))).padStart(2, "0");
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
+    + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds())
+    + sign + pad(off / 60) + ":" + pad(off % 60);
+}
+
+// ─── CATÁLOGO DE EMOCIONES ─────────────────────────────────────────────────────
+let _catalogPromise = null;
+// Promesa cacheada: taps tempranos no disparan fetches duplicados; al terminar
+// se libera para que el botón de reintento pueda volver a pedir el catálogo.
+function loadCatalog() {
+  if (_catalogPromise) return _catalogPromise;
+  document.getElementById("app-error").classList.add("hidden");
+  _catalogPromise = (async () => {
+    try {
+      const res = await fetch(`${API}/api/emotions`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      QUADRANTS = await res.json();
+    } catch (err) {
+      console.error("No se pudo cargar el catálogo de emociones", err);
+      document.getElementById("app-error").classList.remove("hidden");
+    } finally {
+      _catalogPromise = null;
+    }
+  })();
+  return _catalogPromise;
+}
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
 function showScreen(name) {
@@ -62,6 +72,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 // ─── MOOD METER ───────────────────────────────────────────────────────────────
 document.querySelectorAll(".quadrant").forEach(q => {
   q.addEventListener("click", () => {
+    if (!QUADRANTS) { loadCatalog(); return; }
     state.selectedQuadrant = q.dataset.q;
     const meter = document.querySelector(".mood-meter");
     q.classList.add("zooming");
@@ -201,12 +212,15 @@ async function analyzeText(text) {
   state.pendingText = text;
   startAnalyzingCopy();
   showScreen("analyzing");
-  const fullText = `Emoción seleccionada: ${state.selectedEmotion}. ${text}`;
   try {
     const res = await fetch(`${API}/api/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: fullText }),
+      body: JSON.stringify({
+        text: text,
+        emocion_seleccionada: state.selectedEmotion,
+        client_time: localISOTime(),
+      }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -412,6 +426,7 @@ async function analyzeEntry(blob) {
   const form = new FormData();
   form.append("audio", blob, "recording.webm");
   form.append("emocion_seleccionada", state.selectedEmotion);
+  form.append("client_time", localISOTime());
 
   try {
     const res = await fetch(`${API}/api/entry`, { method: "POST", body: form });
@@ -818,4 +833,5 @@ function skeletonCards(n = 4) {
 const taglineEl = document.querySelector("#screen-mood .tagline");
 if (taglineEl) animateWords(taglineEl);
 
-loadHomeCompanion();
+document.getElementById("btn-app-retry").addEventListener("click", loadCatalog);
+loadCatalog();

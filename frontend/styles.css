@@ -1173,3 +1173,20 @@ body {
   /* El anillo del orbe también puede girar (comunica "procesando") */
   .mascota-orb::after { animation: spin 1.6s linear infinite !important; }
 }
+
+/* ─── Error de arranque ─────────────────────────────────────────────── */
+.app-error {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  background: var(--bg);
+  text-align: center;
+  color: var(--text-dim);
+}
+.app-error .btn-primary { max-width: 240px; }

@@ -26,8 +26,6 @@
       <p class="tagline">¿Cómo te sientes ahora?</p>
     </header>
 
-    <div id="home-companion" class="hidden"></div>
-
     <section class="mood-section">
       <p class="axis-label axis-h">Alta energía ↑</p>
       <div class="mood-row">
@@ -242,6 +240,12 @@
       <i data-lucide="message-circle" aria-hidden="true"></i><span>Chat</span>
     </button>
   </nav>
+
+  <!-- ─── Error de arranque (catálogo no disponible) ─────────────────────── -->
+  <div id="app-error" class="app-error hidden">
+    <p>No se pudo cargar Mirror. Revisa tu conexión.</p>
+    <button id="btn-app-retry" class="btn-primary" type="button">Reintentar</button>
+  </div>
 
   <script src="/app.js"></script>
   <script src="https://unpkg.com/lucide@1.16.0/dist/umd/lucide.min.js"></script>
