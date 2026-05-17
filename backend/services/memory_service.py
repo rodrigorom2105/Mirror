@@ -175,6 +175,9 @@ def retrieve_relevant(text: str, top_k: int = 5, cuadrante=None,
         age_days = max((now - ts) / 86400.0, 0.0) if ts else 999.0
         recency = 0.5 ** (age_days / _HALF_LIFE_DAYS)
         intensity = (entry.get("intensidad") or 0) / 10.0
+        # `_sim` expone la similitud pura: el feedback de registro filtra por
+        # ella para decidir si una entrada pasada es de verdad pertinente.
+        entry["_sim"] = round(sim, 4)
         entry["_score"] = _W_SIM * sim + _W_RECENCY * recency + _W_INTENSITY * intensity
         scored.append(entry)
     scored.sort(key=lambda e: e["_score"], reverse=True)

@@ -3,6 +3,7 @@
 Reemplaza al reasoning_pipeline para el feedback de registro: aquí no hay
 compuerta, el feedback se genera SIEMPRE en uno de dos modos (apoyo / ligero).
 """
+import os
 from datetime import datetime
 
 from services.emotion_catalog import emotion_position, position_intensity
@@ -12,6 +13,11 @@ _W_EMOCION = 0.60
 _W_CONTENIDO = 0.40
 _W_PRIMARIA = 0.70
 _W_SECUNDARIAS = 0.30
+
+# Similitud mínima para tratar una entrada pasada como "contexto suficiente"
+# y ofrecérsela al LLM. Por debajo del umbral el feedback se queda con el
+# registro actual y el perfil. Tunable por entorno sin tocar código.
+_MIN_CONTEXT_SIM = float(os.getenv("FEEDBACK_CONTEXT_MIN_SIM", "0.45"))
 
 _CUADRANTES_NEGATIVOS = {"rojo", "azul"}
 _DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
@@ -83,7 +89,11 @@ _FALLBACK = ("Gracias por registrar cómo te sientes. "
 
 def _build_evidence(ruler: dict, modo: str, client_time) -> str:
     """Arma el bloque de evidencia estructurada para el prompt del feedback."""
-    from services.memory_service import get_helpful_feedback_examples
+    from services.memory_service import (
+        format_context_block,
+        get_helpful_feedback_examples,
+        retrieve_relevant,
+    )
     from services.profile_service import get_wellbeing_sources
 
     franja, dia = franja_horaria(client_time)
@@ -112,6 +122,25 @@ def _build_evidence(ruler: dict, modo: str, client_time) -> str:
     else:
         lines.append("COSAS QUE YA LE HAN HECHO BIEN: sin datos — no "
                      "recomiendes actividades, solo acompaña con calidez.")
+
+    # ENTRADAS PASADAS RELACIONADAS — contexto del propio historial. Solo se
+    # ofrece si hay similitud real; si no, el feedback se centra en el ahora.
+    try:
+        consulta = " ".join(filter(None, [
+            ruler.get("resumen", ""),
+            ruler.get("emocion_primaria", ""),
+            ruler.get("disparador", ""),
+        ])).strip()
+        relacionadas = retrieve_relevant(consulta, top_k=4) if consulta else []
+        relacionadas = [e for e in relacionadas
+                        if e.get("_sim", 0) >= _MIN_CONTEXT_SIM][:2]
+    except Exception:  # noqa: BLE001
+        relacionadas = []
+    if relacionadas:
+        lines.append("ENTRADAS PASADAS RELACIONADAS (de su propio historial; "
+                      "menciónalas SOLO si conectan de verdad con este "
+                      "registro, sin forzarlo):")
+        lines.append(format_context_block(relacionadas))
 
     try:
         ejemplos = get_helpful_feedback_examples(2)
