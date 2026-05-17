@@ -224,6 +224,7 @@ async function analyzeText(text) {
   state.pendingText = text;
   startAnalyzingCopy();
   showScreen("analyzing");
+  setOrbColor(state.selectedQuadrant);
   try {
     const res = await fetch(`${API}/api/analyze`, {
       method: "POST",
@@ -463,6 +464,7 @@ async function analyzeEntry(blob) {
   state.audioBlob = blob;
   startAnalyzingCopy();
   showScreen("analyzing");
+  setOrbColor(state.selectedQuadrant);
 
   const form = new FormData();
   form.append("audio", blob, "recording.webm");
@@ -487,6 +489,13 @@ async function analyzeEntry(blob) {
     // Si el error trae un mensaje del backend lo mostramos; si es de red, genérico.
     showAnalyzingError(err.userFacing ? err.message : "");
   }
+}
+
+// Tiñe el aura de carga con el color del cuadrante elegido.
+function setOrbColor(quadrant) {
+  const colors = { rojo: "#C2553B", amarillo: "#B0852A", azul: "#4E6E88", verde: "#557A58" };
+  document.getElementById("screen-analyzing")
+    .style.setProperty("--orb-color", colors[quadrant] || "#7D72D6");
 }
 
 function startAnalyzingCopy() {

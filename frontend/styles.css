@@ -659,10 +659,30 @@ body {
 .mascota-orb::before {
   content: '';
   position: absolute;
-  inset: 14px;
+  inset: 28px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(125, 114, 214, 0.30) 0%, transparent 70%);
-  animation: glowPulse 2.6s var(--ease-soft) infinite;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--orb-color, var(--indigo-light)) 32%, transparent) 0%,
+    transparent 70%);
+  animation: glowPulse 3.4s var(--ease-soft) infinite;
+}
+
+/* Aura: anillos concéntricos que respiran hacia afuera */
+.orb-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--orb-color, var(--indigo-light));
+  opacity: 0;
+  animation: orbBreathe 3.6s var(--ease-soft) infinite;
+}
+/* nth-child(of) cuenta solo .orb-ring: inmune a spans insertados antes. */
+.orb-ring:nth-child(2 of .orb-ring) { animation-delay: 1.2s; }
+.orb-ring:nth-child(3 of .orb-ring) { animation-delay: 2.4s; }
+@keyframes orbBreathe {
+  0%   { opacity: 0;    transform: scale(0.68); }
+  30%  { opacity: 0.45; }
+  100% { opacity: 0;    transform: scale(1.28); }
 }
 
 .orb-spark {
@@ -670,8 +690,8 @@ body {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--indigo-light);
-  box-shadow: 0 0 12px 2px rgba(125, 114, 214, 0.7);
+  background: var(--orb-color, var(--indigo-light));
+  box-shadow: 0 0 12px 2px color-mix(in srgb, var(--orb-color, var(--indigo-light)) 70%, transparent);
 }
 .spark-1 { top: 16px; left: 40px;    animation: sparkle 2.4s ease-in-out infinite; }
 .spark-2 { bottom: 28px; right: 32px; width: 7px; height: 7px; animation: sparkle 2.4s ease-in-out infinite 0.8s; }
@@ -1046,7 +1066,6 @@ body {
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ─── Acompañamiento de Mira ────────────────────────────────────────── */
 
@@ -1155,18 +1174,6 @@ body {
   to   { background-position: -200% 0; }
 }
 
-/* ─── Anillo de progreso del orbe de análisis ───────────────────────── */
-
-.mascota-orb::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  border-top-color: var(--indigo-light);
-  border-right-color: color-mix(in srgb, var(--indigo-light) 40%, transparent);
-  animation: spin 1.6s linear infinite;
-}
 
 /* Cuarta partícula */
 .spark-4 {
@@ -1186,8 +1193,6 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  /* El anillo del orbe también puede girar (comunica "procesando") */
-  .mascota-orb::after { animation: spin 1.6s linear infinite !important; }
 }
 
 /* ─── Error de arranque ─────────────────────────────────────────────── */
