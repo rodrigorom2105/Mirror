@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
 import tempfile, os
@@ -11,6 +11,36 @@ from crisis_keywords import contains_crisis
 router = APIRouter()
 _log = get_logger("entry")
 
+
+def _update_profile(ruler: dict, background: BackgroundTasks) -> None:
+    """Integra la entrada en el perfil consolidado. Nunca rompe el guardado."""
+    try:
+        from services.profile_service import (
+            regenerate_narrative,
+            should_regenerate_narrative,
+            update_profile_with_entry,
+        )
+        p = update_profile_with_entry(ruler)
+        if should_regenerate_narrative(p):
+            background.add_task(regenerate_narrative)
+    except Exception as exc:  # noqa: BLE001 - el perfil es un derivado, no crítico
+        _log.warning("No se pudo actualizar el perfil: %s", exc)
+
+
+def _acompanamiento_post_entry():
+    """Corre el pipeline de razonamiento tras guardar. Devuelve dict o None.
+
+    El pipeline decide por sí mismo si vale la pena intervenir; aquí solo se
+    expone el resultado cuando interviene.
+    """
+    try:
+        from services.reasoning_pipeline import run_companion_pipeline
+        result = run_companion_pipeline(trigger="post_entry")
+        return result.to_dict() if result.intervenir else None
+    except Exception as exc:  # noqa: BLE001 - el acompañamiento nunca rompe el guardado
+        _log.warning("Pipeline de acompañamiento falló: %s", exc)
+        return None
+
 class AnalyzeRequest(BaseModel):
     text: str
 
@@ -21,12 +51,15 @@ async def analyze(req: AnalyzeRequest):
     return ruler
 
 @router.post("/save")
-async def save(ruler: dict):
+async def save(ruler: dict, background: BackgroundTasks):
     entry_id, saved_at = save_entry(ruler)
+    ruler["saved_at"] = saved_at
+    _update_profile(ruler, background)
     return {"id": entry_id, "saved_at": saved_at}
 
 @router.post("/entry")
 async def entry(
+    background: BackgroundTasks,
     audio: UploadFile = File(...),
     emocion_seleccionada: str = Form(...),
 ):
@@ -51,9 +84,12 @@ async def entry(
         ruler["crisis_flag"] = contains_crisis(full_text)
         if ruler["crisis_flag"]:
             _log.warning("crisis_flag activado en esta entrada")
-        entry_id, _ = save_entry(ruler)
+        entry_id, saved_at = save_entry(ruler)
+        ruler["saved_at"] = saved_at
         _log.info("Entrada guardada — id=%s", entry_id)
-        return {**ruler, "id": entry_id}
+        _update_profile(ruler, background)
+        acompanamiento = _acompanamiento_post_entry()
+        return {**ruler, "id": entry_id, "acompanamiento": acompanamiento}
     except AudioError as exc:
         _log.warning("Error de audio: %s", exc)
         # Errores esperados del audio pipeline (audio corto, sin voz, formato
