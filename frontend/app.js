@@ -612,7 +612,7 @@ function onAnalysisReady(data) {
   state.rulerResult = data;
   stopAnalyzingCopy();
   if (data.crisis_flag) showCrisisModal();
-  renderFeedbackCard(data.feedback);
+  renderFeedbackCard(data.feedback, data);
   setFeedbackReaction(null);
   const ta = document.getElementById("confirm-text");
   ta.value = data.transcripcion || "";
@@ -621,19 +621,35 @@ function onAnalysisReady(data) {
   showScreen("confirm");
 }
 
-// Render seguro (textContent): el mensaje viene del LLM, nunca como HTML.
-function renderFeedbackCard(feedback) {
+// Héroe de la confirmación: el mensaje de feedback de Mira es la pieza
+// central. Render seguro (textContent): el mensaje viene del LLM, nunca
+// como HTML. `data` aporta la emoción identificada como acento del cuadrante.
+function renderFeedbackCard(feedback, data) {
   const el = document.getElementById("feedback-card");
   el.innerHTML = "";
-  el.className = "feedback-card" + (feedback?.modo ? ` modo-${feedback.modo}` : "");
-  const img = document.createElement("img");
-  img.src = "/assets/mira.png";
-  img.alt = "";
-  img.className = "feedback-mira";
-  img.onerror = () => img.classList.add("img-missing");
+  const cuad = data?.cuadrante;
+  el.className = "feedback-card"
+    + (feedback?.modo ? ` modo-${feedback.modo}` : "")
+    + (cuad ? ` q-${cuad}` : "");
+
+  // Acento sutil: la emoción principal, teñida con el color del cuadrante.
+  const emocion = (data?.emocion_primaria || "").trim();
+  if (emocion) {
+    const tag = document.createElement("span");
+    tag.className = "feedback-emotion";
+    const dot = document.createElement("span");
+    dot.className = "feedback-emotion-dot";
+    dot.setAttribute("aria-hidden", "true");
+    const name = document.createElement("span");
+    name.textContent = emocion;
+    tag.append(dot, name);
+    el.append(tag);
+  }
+
   const p = document.createElement("p");
+  p.className = "feedback-msg";
   p.textContent = feedback?.mensaje || "Gracias por registrar cómo te sientes.";
-  el.append(img, p);
+  el.append(p);
 }
 
 function setFeedbackReaction(value) {

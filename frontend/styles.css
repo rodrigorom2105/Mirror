@@ -126,6 +126,7 @@ body {
 .mira-sm      { width: 66px;  height: 66px; }
 .mira-lg      { width: 172px; height: 172px; }
 .mira-confirm { width: 56px;  height: 56px; }
+.mira-hero    { width: 124px; height: 124px; }
 
 .mira-anim, .mira-tilt, .mira-face {
   width: 100%;
@@ -972,16 +973,38 @@ body.morphing #screen-words.active { animation: none; }
 
 /* ─── Pantalla de confirmación ──────────────────────────────────────── */
 
-.confirm-body { width: 100%; }
-
-.confirm-header {
+.confirm-body {
+  width: 100%;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  flex-direction: column;
+  gap: 24px;
 }
-.confirm-header .mira { margin: 0; }
-.confirm-header h2 { margin: 0; }
+
+/* HÉROE — Mira animada + el mensaje de feedback como pieza central.
+   El conjunto entra como una sola unidad, de abajo hacia arriba. */
+.confirm-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: confirmHeroIn 0.6s var(--ease-soft) both;
+}
+.mira-hero { margin: 0 auto -6px; }
+
+/* Eyebrow discreto: ya no compite con el mensaje, solo lo introduce. */
+.confirm-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 10px 0 14px;
+}
+
+@keyframes confirmHeroIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 .info-card {
   background: var(--surface);
@@ -1287,38 +1310,84 @@ body.morphing #screen-words.active { animation: none; }
 }
 
 
-/* ─── Tarjeta de feedback de Mira ───────────────────────────────────── */
+/* ─── HÉROE · mensaje de feedback de Mira ───────────────────────────────
+   El mensaje es la pieza central de la confirmación: grande, cálido y muy
+   legible. El color del cuadrante (.q-*) lo tiñe sin gritar.               */
 
 .feedback-card {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
-  border: 1px solid var(--border);
-  margin-bottom: 12px;
-  animation: cardIn 0.45s var(--ease-soft) both;
-}
-.feedback-card.modo-apoyo {
-  border-color: color-mix(in srgb, var(--indigo) 32%, transparent);
-}
-.feedback-mira {
-  width: 46px; height: 46px;
-  flex-shrink: 0;
-  object-fit: contain;
-  filter: drop-shadow(0 3px 9px rgba(125, 114, 214, 0.35));
-}
-.feedback-mira.img-missing {
-  border-radius: 50%;
-  font-size: 0;
-  background: radial-gradient(circle at 38% 30%, #7D72D6, #5B53C9 60%, #3F3895);
-}
-.feedback-card p {
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
   margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.55;
+}
+
+/* Acento de la emoción identificada — píldora discreta sobre el mensaje. */
+.feedback-emotion {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  padding: 5px 13px 5px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--feedback-accent) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--feedback-accent) 30%, transparent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--feedback-accent);
+  animation: feedbackEmotionIn 0.5s var(--ease-spring) 0.12s both;
+}
+.feedback-emotion-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--feedback-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--feedback-accent) 22%, transparent);
+}
+@keyframes feedbackEmotionIn {
+  from { opacity: 0; transform: scale(0.86); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* El mensaje en sí — grande, con aire generoso. La cita lo enmarca. */
+.feedback-msg {
+  margin: 0;
+  max-width: 22rem;
+  font-size: clamp(1.18rem, 5.4vw, 1.42rem);
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: -0.012em;
   color: var(--text);
+  text-wrap: balance;
+  animation: feedbackMsgIn 0.55s var(--ease-soft) 0.16s both;
+}
+
+@keyframes feedbackMsgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Color de acento por cuadrante (cae al índigo de Mira si no hay cuadrante).
+   .modo-apoyo mantiene el índigo aunque el cuadrante tiña la píldora.       */
+.feedback-card            { --feedback-accent: var(--indigo); }
+.feedback-card.q-rojo     { --feedback-accent: var(--red); }
+.feedback-card.q-amarillo { --feedback-accent: var(--yellow); }
+.feedback-card.q-azul     { --feedback-accent: var(--blue); }
+.feedback-card.q-verde    { --feedback-accent: var(--green); }
+
+/* ─── SECUNDARIO · valoración + transcripción + detalles ────────────────
+   Todo aquí es deliberadamente más ligero y pequeño que el héroe: un solo
+   bloque calmado, claramente subordinado al mensaje de Mira.               */
+
+.confirm-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 14px 8px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  animation: confirmHeroIn 0.6s var(--ease-soft) 0.1s both;
 }
 
 .feedback-rating {
@@ -1326,22 +1395,20 @@ body.morphing #screen-words.active { animation: none; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 18px;
-  padding: 0 4px;
 }
 .feedback-rating-q { font-size: 0.82rem; color: var(--text-dim); }
 .feedback-rating-btns { display: flex; gap: 8px; }
 .rate-btn {
-  width: 40px; height: 40px;
+  width: 38px; height: 38px;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
+  border-radius: 11px;
+  background: var(--surface-2);
   color: var(--text-dim);
   cursor: pointer;
   transition: transform 0.16s var(--ease-spring), background 0.18s ease, color 0.18s ease;
 }
-.rate-btn svg { width: 18px; height: 18px; }
+.rate-btn svg { width: 17px; height: 17px; }
 .rate-btn:active { transform: scale(0.92); }
 .rate-btn.active {
   background: linear-gradient(135deg, var(--indigo-light), var(--indigo));
@@ -1349,6 +1416,11 @@ body.morphing #screen-words.active { animation: none; }
   color: #fff;
 }
 
+/* Separador sutil entre la valoración y el resto del bloque secundario. */
+.confirm-edit {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
 .confirm-text-label {
   display: block;
   font-size: 0.7rem;
@@ -1360,35 +1432,42 @@ body.morphing #screen-words.active { animation: none; }
 }
 #confirm-text {
   width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 11px 13px;
   font: inherit;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
   color: var(--text);
   resize: none;
   outline: none;
-  transition: border-color 0.18s ease;
+  transition: border-color 0.18s ease, background 0.18s ease;
 }
-#confirm-text:focus { border-color: var(--indigo); }
+#confirm-text:focus {
+  border-color: var(--indigo);
+  background: var(--surface);
+}
 #btn-reanalyze { margin-top: 10px; }
 
 .btn-details {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 14px 0 0;
-  padding: 8px 4px;
+  align-self: flex-start;
+  margin: 0;
+  padding: 6px 2px;
   border: none;
   background: none;
-  color: var(--indigo);
+  color: var(--text-dim);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+  transition: color 0.16s ease;
 }
-.btn-details svg { width: 16px; height: 16px; }
+.btn-details:active { color: var(--indigo); }
+.btn-details svg { width: 15px; height: 15px; }
 
 .insight-line {
   font-size: 0.88rem;
@@ -1405,6 +1484,18 @@ body.morphing #screen-words.active { animation: none; }
   color: var(--indigo-light);
 }
 .insight-line:last-child { margin-bottom: 0; }
+
+/* Modo noche · confirmación. Los colores de acento ya se adaptan vía las
+   variables --red/--yellow/… ; aquí solo subimos un punto el contraste de
+   la píldora de emoción para que no se hunda en la superficie oscura.      */
+[data-theme="dark"] .feedback-emotion {
+  background: color-mix(in srgb, var(--feedback-accent) 20%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--feedback-accent) 42%, transparent);
+}
+[data-theme="dark"] .confirm-secondary {
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
 
 /* ─── Animación de entrada por palabras ─────────────────────────────── */
 
