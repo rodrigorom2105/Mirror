@@ -478,39 +478,138 @@ body {
   color: var(--q-ink);
   background: color-mix(in srgb, var(--q-base) calc(18% + var(--t) * 70%), var(--q-soft));
   transition: transform 0.18s var(--ease-spring), box-shadow 0.18s ease;
-  animation: tileEmerge 0.5s var(--ease-spring) both;
 }
 .sub-emotion.is-intense { color: #fff; }
 .sub-emotion:active { transform: scale(0.94); }
 .sub-emotion.selected { box-shadow: 0 0 0 2.5px var(--q-base); transform: scale(1.04); }
 @media (hover: hover) { .sub-emotion:hover { transform: translateY(-2px); } }
 
-/* Transición orgánica cuadrante → sub-matriz */
-.mood-meter.dimmed .quadrant:not(.zooming) {
-  opacity: 0;
-  transform: scale(0.4);
-}
-.mood-meter.dimmed .quadrant {
-  transition: transform 0.34s var(--ease-soft), opacity 0.3s ease;
-}
-.quadrant.zooming {
-  transform: scale(2.7);
-  opacity: 0;
-  z-index: 2;
-  transition: transform 0.42s var(--ease-soft), opacity 0.42s ease 0.06s;
-}
-#screen-words.active { animation: screenIn 0.3s var(--ease-soft) both; }
+/* ─── Transición morfológica · cuadrante ⇄ sub-matriz ───────────────────
+   El cuadrante elegido se clona en un panel que crece físicamente hasta el
+   rect exacto de la rejilla destino (sin fade) y, ya posicionado, se
+   subdivide en los 12 cuadros. app.js mide los rects y orquesta los tiempos
+   con la Web Animations API. Todo transform/opacity → 60fps en GPU.        */
 
-/* Las emociones emergen escalonadas desde el centro (animación en .sub-emotion). */
+#morph-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;                /* sobre las pantallas, bajo el tab-bar (100) */
+  pointer-events: none;
+  display: none;
+}
+#morph-layer.active { display: block; }
+
+/* Panel = clon visual del cuadrante. app.js lo dimensiona al rect destino y
+   lo arranca transform-escalado al rect del cuadrante de origen. */
+.morph-panel {
+  position: fixed;
+  border-radius: 22px;
+  transform-origin: top left;
+  will-change: transform;
+  box-shadow: 0 18px 40px rgba(120, 100, 70, 0.16);
+}
+.morph-panel::before {        /* mismo brillo glossy que el cuadrante */
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, transparent 60%);
+  pointer-events: none;
+}
+.morph-panel.q-rojo {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--red-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+}
+.morph-panel.q-amarillo {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--yellow-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--yellow) 35%, transparent);
+}
+.morph-panel.q-azul {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--blue-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);
+}
+.morph-panel.q-verde {
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--green-soft) 100%);
+  border: 1px solid color-mix(in srgb, var(--green) 35%, transparent);
+}
+[data-theme="dark"] .morph-panel::before { opacity: 0.06; }
+[data-theme="dark"] .morph-panel { box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5); }
+
+/* El cuadrante de origen se oculta al instante: el panel lo cubre exacto. */
+.quadrant.morph-source { visibility: hidden; }
+
+/* Toda la sección del mood meter se retira tras el panel: los cuadrantes no
+   elegidos encogen + difuminan, y las etiquetas de eje se desvanecen. */
+.mood-section.morphing-out .quadrant:not(.morph-source) {
+  opacity: 0;
+  transform: scale(0.86);
+  transition: transform 0.44s var(--ease-soft), opacity 0.34s ease;
+}
+.mood-section.morphing-out .axis-label {
+  opacity: 0;
+  transition: opacity 0.32s ease;
+}
+/* La cabecera se aparta apenas mientras la pantalla "se abre". */
+.mood-header.morphing-out {
+  opacity: 0;
+  transform: translateY(-14px);
+  transition: transform 0.44s var(--ease-soft), opacity 0.32s ease;
+}
+
+/* Pantalla de palabras: entrada normal al volver desde grabar… */
+#screen-words.active { animation: screenIn 0.32s var(--ease-soft) both; }
+/* …pero durante el morph la orquesta app.js, sin el fade de pantalla. */
+body.morphing #screen-words.active { animation: none; }
+/* En la subdivisión la pantalla se eleva sobre el panel: los cuadros emergen
+   por encima y el panel sólo asoma por los huecos hasta quedar cubierto. */
+#screen-words.morph-revealing { z-index: 95; }
+
+/* Subdivisión: los 12 cuadros emergen escalonados desde el centro. */
+.submatrix-grid.revealing .sub-emotion {
+  animation: tileEmerge 0.46s var(--ease-spring) backwards;
+}
 @keyframes tileEmerge {
-  from { opacity: 0; transform: scale(0.55); }
+  from { opacity: 0; transform: scale(0.72); }
   to   { opacity: 1; transform: scale(1); }
 }
+/* Recomposición (reversa): los cuadros colapsan y dejan ver el panel. */
+.submatrix-grid.collapsing .sub-emotion {
+  animation: tileCollapse 0.3s var(--ease-soft) forwards;
+}
+@keyframes tileCollapse {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.74); }
+}
+/* Al recomponerse, la cabecera de la pantalla de palabras se desvanece suave. */
+#screen-words.morph-leaving .back-btn,
+#screen-words.morph-leaving .mira-words,
+#screen-words.morph-leaving #words-title,
+#screen-words.morph-leaving #words-subtitle,
+#screen-words.morph-leaving .submatrix-axis {
+  opacity: 0;
+  transition: opacity 0.26s ease;
+}
+/* El toggle de tema se aparta junto con la cabecera durante el morph. */
+.theme-toggle.morphing-out {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.32s ease;
+}
 
-/* Las etiquetas de eje y el subtítulo aparecen al final, sutiles */
-#screen-words .submatrix-axis,
-#screen-words .submatrix-sub {
-  animation: axisFade 0.5s var(--ease-soft) 0.34s both;
+/* La cabecera de la pantalla de palabras entra suave en la fase 2. */
+#screen-words.morph-revealing .back-btn,
+#screen-words.morph-revealing #words-title,
+#screen-words.morph-revealing #words-subtitle {
+  animation: wordsChromeIn 0.5s var(--ease-soft) backwards;
+}
+@keyframes wordsChromeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Las etiquetas de eje aparecen al final, sutiles. */
+#screen-words .submatrix-axis {
+  animation: axisFade 0.5s var(--ease-soft) 0.18s both;
 }
 @keyframes axisFade {
   from { opacity: 0; }

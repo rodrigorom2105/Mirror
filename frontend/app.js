@@ -70,38 +70,40 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => showScreen(btn.dataset.screen));
 });
 
-// ─── MOOD METER ───────────────────────────────────────────────────────────────
+// ─── MOOD METER · transición morfológica ──────────────────────────────────────
+// Al elegir un cuadrante, éste se clona en un panel que crece físicamente hasta
+// el rect de la rejilla de emociones (sin fade) y, ya posicionado, se subdivide
+// en los 12 cuadros. La reversa recompone los cuadros y contrae el panel hasta
+// el cuadrante. Web Animations API + transform/opacity → 60fps en GPU.
+let morphing = false;
+const EXPAND_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 document.querySelectorAll(".quadrant").forEach(q => {
   q.addEventListener("click", () => {
+    if (morphing) return;
     if (!QUADRANTS) { loadCatalog(); return; }
-    state.selectedQuadrant = q.dataset.q;
-    const meter = document.querySelector(".mood-meter");
-    q.classList.add("zooming");
-    meter.classList.add("dimmed");
-    // 380ms: se cambia de pantalla antes de que el zoom (0.42s) termine;
-    // el "snap" del cuadrante al quitar la clase queda oculto tras screen-words.
-    setTimeout(() => {
-      q.classList.remove("zooming");
-      meter.classList.remove("dimmed");
-      renderSubmatrix(q.dataset.q);
-      showScreen("words");
-    }, 380);
+    morphToSubmatrix(q);
   });
 });
 
-function renderSubmatrix(quadrant) {
+// Construye la sub-matriz de un cuadrante (sin animar): título, ejes y los 12
+// cuadros. La animación de entrada la dispara la fase 2 del morph.
+function populateSubmatrix(quadrant) {
   const data = QUADRANTS[quadrant];
   const stage = document.querySelector(".submatrix-stage");
   stage.className = `submatrix-stage q-${quadrant}`;
-  const wordsTitleEl = document.getElementById("words-title");
-  wordsTitleEl.textContent = data.name;
-  animateWords(wordsTitleEl);
+  document.getElementById("words-title").textContent = data.name;
   document.getElementById("axis-top").textContent = `↑ ${data.axisTop}`;
   document.getElementById("axis-bottom").textContent = `${data.axisBottom} ↓`;
   document.getElementById("axis-side").textContent = data.axisSide;
 
   const grid = document.getElementById("submatrix-grid");
   grid.innerHTML = "";
+  grid.classList.remove("revealing", "collapsing");
   const n = data.emotions.length;
   // Más intensa arriba: se invierte el arreglo (que va de leve a intensa).
   [...data.emotions].reverse().forEach((word, idx) => {
@@ -110,10 +112,10 @@ function renderSubmatrix(quadrant) {
     tile.type = "button";
     tile.className = "sub-emotion" + (t >= 0.55 ? " is-intense" : "");
     tile.style.setProperty("--t", t.toFixed(3));
-    // Emergen desde el centro de la rejilla 3x4: el delay crece con la distancia.
+    // Stagger desde el centro de la rejilla 3×4: el retraso crece con la distancia.
     const row = Math.floor(idx / 3), col = idx % 3;
     const dist = Math.hypot(row - 1.5, col - 1);
-    tile.style.animationDelay = `${0.04 + dist * 0.05}s`;
+    tile.style.animationDelay = `${(0.03 + dist * 0.05).toFixed(3)}s`;
     tile.textContent = word;
     tile.addEventListener("click", () => {
       document.querySelectorAll(".sub-emotion").forEach(c => c.classList.remove("selected"));
@@ -126,7 +128,167 @@ function renderSubmatrix(quadrant) {
   });
 }
 
-document.getElementById("btn-back-words").addEventListener("click", () => showScreen("mood"));
+// Mide un rect montando la pantalla fuera de vista un instante: position:fixed
+// e invisible, así no parpadea ni desplaza el resto del layout.
+function measureWhileHidden(screen, selector) {
+  const prev = screen.style.cssText;
+  screen.classList.add("active");
+  screen.style.cssText = "position:fixed;inset:0;visibility:hidden;animation:none;";
+  const rect = document.querySelector(selector).getBoundingClientRect();
+  screen.classList.remove("active");
+  screen.style.cssText = prev;
+  return rect;
+}
+
+// Transform que hace que un panel colocado en destRect se vea como srcRect.
+function morphTransform(srcRect, destRect) {
+  const sx = srcRect.width / destRect.width;
+  const sy = srcRect.height / destRect.height;
+  const dx = srcRect.left - destRect.left;
+  const dy = srcRect.top - destRect.top;
+  return `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+}
+
+// Crea el panel-clon del cuadrante, dimensionado a `rect`.
+function makeMorphPanel(quadrant, rect) {
+  const panel = document.createElement("div");
+  panel.className = `morph-panel q-${quadrant}`;
+  panel.style.left = `${rect.left}px`;
+  panel.style.top = `${rect.top}px`;
+  panel.style.width = `${rect.width}px`;
+  panel.style.height = `${rect.height}px`;
+  return panel;
+}
+
+// ─ Avance: cuadrante → sub-matriz ─
+function morphToSubmatrix(q) {
+  const quadrant = q.dataset.q;
+  state.selectedQuadrant = quadrant;
+  populateSubmatrix(quadrant);
+
+  if (prefersReducedMotion()) { showScreen("words"); return; }
+
+  morphing = true;
+  document.body.classList.add("morphing");
+  const moodScreen = document.getElementById("screen-mood");
+  const wordsScreen = document.getElementById("screen-words");
+  const moodSection = document.querySelector(".mood-section");
+  const header = document.querySelector(".mood-header");
+  const themeToggle = document.getElementById("theme-toggle");
+  const morphLayer = document.getElementById("morph-layer");
+  const grid = document.getElementById("submatrix-grid");
+  wordsScreen.classList.remove("morph-revealing", "morph-leaving");
+
+  const qRect = q.getBoundingClientRect();
+  const gridRect = measureWhileHidden(wordsScreen, "#submatrix-grid");
+
+  const panel = makeMorphPanel(quadrant, gridRect);
+  morphLayer.appendChild(panel);
+  morphLayer.classList.add("active");
+
+  // Los demás cuadrantes y la cabecera se retiran; el de origen se oculta.
+  q.classList.add("morph-source");
+  moodSection.classList.add("morphing-out");
+  header.classList.add("morphing-out");
+  themeToggle.classList.add("morphing-out");
+
+  // Fase 1 — el panel crece físicamente hasta el rect de la rejilla.
+  const expand = panel.animate(
+    [
+      { transform: morphTransform(qRect, gridRect) },
+      { transform: "translate(0px, 0px) scale(1, 1)" },
+    ],
+    { duration: 430, easing: EXPAND_EASE, fill: "forwards" }
+  );
+
+  expand.onfinish = () => {
+    // Fase 2 — la pantalla de palabras toma el relevo y se subdivide.
+    moodScreen.classList.remove("active");
+    wordsScreen.classList.add("active", "morph-revealing");
+    state.currentScreen = "words";
+    grid.classList.add("revealing");
+    const heading = wordsScreen.querySelector("[data-screen-title]");
+    if (heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
+
+    // El panel se retira cuando los 12 cuadros ya lo cubren.
+    setTimeout(() => {
+      panel.remove();
+      morphLayer.classList.remove("active");
+      wordsScreen.classList.remove("morph-revealing");
+      grid.classList.remove("revealing");
+      moodSection.classList.remove("morphing-out");
+      header.classList.remove("morphing-out");
+      themeToggle.classList.remove("morphing-out");
+      q.classList.remove("morph-source");
+      document.body.classList.remove("morphing");
+      morphing = false;
+    }, 600);
+  };
+}
+
+// ─ Reversa: sub-matriz → cuadrante ─
+function morphBackToMood() {
+  if (morphing) return;
+  const quadrant = state.selectedQuadrant;
+  if (prefersReducedMotion() || !quadrant) { showScreen("mood"); return; }
+
+  morphing = true;
+  document.body.classList.add("morphing");
+  const moodScreen = document.getElementById("screen-mood");
+  const wordsScreen = document.getElementById("screen-words");
+  const meter = document.querySelector(".mood-meter");
+  const header = document.querySelector(".mood-header");
+  const themeToggle = document.getElementById("theme-toggle");
+  const morphLayer = document.getElementById("morph-layer");
+  const grid = document.getElementById("submatrix-grid");
+  const moodSection = document.querySelector(".mood-section");
+  const sourceQ = meter.querySelector(`.quadrant[data-q="${quadrant}"]`);
+
+  const gridRect = grid.getBoundingClientRect();
+  moodSection.classList.remove("morphing-out");
+  if (sourceQ) sourceQ.classList.remove("morph-source");
+  const qRect = measureWhileHidden(moodScreen, `.quadrant[data-q="${quadrant}"]`);
+
+  const panel = makeMorphPanel(quadrant, gridRect);
+  morphLayer.appendChild(panel);
+  morphLayer.classList.add("active");
+
+  // Los cuadros se recomponen: colapsan hacia dentro y dejan ver el panel;
+  // la cabecera de palabras se desvanece a la par.
+  wordsScreen.classList.add("morph-revealing", "morph-leaving");
+  grid.classList.remove("revealing");
+  grid.classList.add("collapsing");
+
+  setTimeout(() => {
+    // El panel queda a la vista; cambia de pantalla y contráelo al cuadrante.
+    wordsScreen.classList.remove("active", "morph-revealing", "morph-leaving");
+    moodScreen.classList.add("active");
+    state.currentScreen = "mood";
+    header.classList.remove("morphing-out");
+    themeToggle.classList.remove("morphing-out");
+    if (sourceQ) sourceQ.classList.add("morph-source");
+
+    const contract = panel.animate(
+      [
+        { transform: "translate(0px, 0px) scale(1, 1)" },
+        { transform: morphTransform(qRect, gridRect) },
+      ],
+      { duration: 420, easing: EXPAND_EASE, fill: "forwards" }
+    );
+    contract.onfinish = () => {
+      panel.remove();
+      morphLayer.classList.remove("active");
+      if (sourceQ) sourceQ.classList.remove("morph-source");
+      grid.classList.remove("collapsing");
+      document.body.classList.remove("morphing");
+      morphing = false;
+      const heading = moodScreen.querySelector("[data-screen-title]");
+      if (heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
+    };
+  }, 460);
+}
+
+document.getElementById("btn-back-words").addEventListener("click", morphBackToMood);
 document.getElementById("btn-back-record").addEventListener("click", () => showScreen("words"));
 
 // ─── AUDIO RECORDING ──────────────────────────────────────────────────────────
