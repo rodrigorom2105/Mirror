@@ -19,6 +19,7 @@ def _build_transcriber() -> Transcriber:
             cli=os.getenv("WHISPERKIT_CLI", "whisperkit-cli"),
             model=os.getenv("WHISPERKIT_MODEL", "large-v3"),
             timeout=int(os.getenv("STT_TIMEOUT", "60")),
+            model_path=os.getenv("WHISPERKIT_MODEL_PATH", ""),
         )
     if engine == "faster_whisper":
         return FasterWhisperTranscriber(
