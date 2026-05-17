@@ -10,7 +10,7 @@ El JSON debe tener exactamente estos campos:
   "cuadrante": "rojo|amarillo|azul|verde",
   "valencia": -1.0 a 1.0 (negativo=desagradable, positivo=agradable),
   "energia": 0.0 a 1.0 (0=baja energía, 1=alta energía),
-  "intensidad": 1 a 10,
+  "intensidad": 1 a 10 (1=apenas perceptible, 4-5=notoria pero manejable, 7-8=fuerte y domina el momento, 10=desbordante; calíbrala por la severidad real del disparador y la fuerza de las palabras),
   "disparador": "string — qué causó esta emoción",
   "contexto": {
     "personas": ["array de personas mencionadas"],

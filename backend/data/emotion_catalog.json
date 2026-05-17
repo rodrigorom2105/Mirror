@@ -1,0 +1,34 @@
+{
+  "rojo": {
+    "name": "Alta tensión",
+    "icon": "flame",
+    "axisTop": "Más alterado",
+    "axisBottom": "Más calmado",
+    "axisSide": "Más desagradable",
+    "emotions": ["nervioso", "inquieto", "preocupado", "tenso", "ansioso", "irritado", "molesto", "frustrado", "estresado", "abrumado", "enojado", "furioso"]
+  },
+  "amarillo": {
+    "name": "Energía positiva",
+    "icon": "sun",
+    "axisTop": "Más intenso",
+    "axisBottom": "Más sereno",
+    "axisSide": "Más agradable",
+    "emotions": ["optimista", "motivado", "animado", "alegre", "feliz", "entusiasmado", "inspirado", "orgulloso", "emocionado", "sorprendido", "eufórico", "radiante"]
+  },
+  "azul": {
+    "name": "Baja energía",
+    "icon": "cloud-rain",
+    "axisTop": "Más leve",
+    "axisBottom": "Más hundido",
+    "axisSide": "Más desagradable",
+    "emotions": ["desganado", "aburrido", "nostálgico", "melancólico", "desanimado", "decepcionado", "triste", "solo", "agotado", "vacío", "derrotado", "abatido"]
+  },
+  "verde": {
+    "name": "Paz interior",
+    "icon": "leaf",
+    "axisTop": "Más activo",
+    "axisBottom": "Más profundo",
+    "axisSide": "Más agradable",
+    "emotions": ["cómodo", "contento", "satisfecho", "tranquilo", "relajado", "calmado", "sereno", "agradecido", "pleno", "seguro", "en paz", "descansado"]
+  }
+}

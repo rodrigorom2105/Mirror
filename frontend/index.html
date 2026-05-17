@@ -6,7 +6,18 @@
   <title>Mirror — Autoconocimiento Emocional</title>
   <meta name="description" content="Mirror es tu espejo emocional privado: registra cómo te sientes con tu voz, descubre patrones y conócete mejor. Todo 100% local." />
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#090d16" />
+  <meta name="theme-color" id="theme-color-meta" content="#F7F1E6" />
+  <script>
+    // Aplica el tema antes del primer render (evita parpadeo). Sin una
+    // elección guardada, sigue la preferencia del sistema operativo.
+    (function () {
+      var t = localStorage.getItem("mirror-theme")
+        || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", t);
+      var m = document.getElementById("theme-color-meta");
+      if (m) m.content = t === "dark" ? "#1A1714" : "#F7F1E6";
+    })();
+  </script>
   <link rel="icon" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="stylesheet" href="/tailwind.css" />
@@ -16,8 +27,16 @@
 
   <!-- ─── REGISTRAR · Mood Meter ─────────────────────────────────────────── -->
   <div id="screen-mood" class="screen active">
+    <button id="theme-toggle" class="theme-toggle" type="button"
+      aria-label="Cambiar entre tema claro y oscuro">
+      <i data-lucide="moon" aria-hidden="true"></i>
+    </button>
     <header class="mood-header">
-      <img src="/assets/mira.png" alt="" onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" class="mascota mascota-sm mascota-float" />
+      <div class="mira mira-sm" aria-hidden="true">
+        <div class="mira-anim"><div class="mira-tilt"><div class="mira-face">
+          <img class="mira-body" src="/assets/mira.png" alt=""
+            onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />        </div></div></div>
+      </div>
       <h1 data-screen-title>Mirror</h1>
       <p class="tagline">¿Cómo te sientes ahora?</p>
     </header>
@@ -28,23 +47,23 @@
         <span class="axis-label axis-v">← Desagradable</span>
         <div class="mood-meter">
           <button type="button" class="quadrant quadrant-red" data-q="rojo" aria-label="Alta tensión — tenso, ansioso">
-            <span class="q-emoji" aria-hidden="true">🔥</span>
-            <span class="q-title text-red-300">Alta tensión</span>
+            <span class="q-icon" aria-hidden="true"><i data-lucide="flame"></i></span>
+            <span class="q-title">Alta tensión</span>
             <span class="q-desc">Tenso · Ansioso</span>
           </button>
           <button type="button" class="quadrant quadrant-yellow" data-q="amarillo" aria-label="Energía positiva — feliz, motivado">
-            <span class="q-emoji" aria-hidden="true">⚡</span>
-            <span class="q-title text-yellow-300">Energía positiva</span>
+            <span class="q-icon" aria-hidden="true"><i data-lucide="sun"></i></span>
+            <span class="q-title">Energía positiva</span>
             <span class="q-desc">Feliz · Motivado</span>
           </button>
           <button type="button" class="quadrant quadrant-blue" data-q="azul" aria-label="Baja energía — triste, agotado">
-            <span class="q-emoji" aria-hidden="true">🌧️</span>
-            <span class="q-title text-blue-300">Baja energía</span>
+            <span class="q-icon" aria-hidden="true"><i data-lucide="cloud-rain"></i></span>
+            <span class="q-title">Baja energía</span>
             <span class="q-desc">Triste · Agotado</span>
           </button>
           <button type="button" class="quadrant quadrant-green" data-q="verde" aria-label="Paz interior — calmado, sereno">
-            <span class="q-emoji" aria-hidden="true">🌿</span>
-            <span class="q-title text-green-300">Paz interior</span>
+            <span class="q-icon" aria-hidden="true"><i data-lucide="leaf"></i></span>
+            <span class="q-title">Paz interior</span>
             <span class="q-desc">Calmado · Sereno</span>
           </button>
         </div>
@@ -54,28 +73,78 @@
     </section>
   </div>
 
-  <!-- ─── Palabras ───────────────────────────────────────────────────────── -->
+  <!-- ─── Palabras (sub-matriz de emociones) ────────────────────────────── -->
   <div id="screen-words" class="screen">
-    <button id="btn-back-words" class="back-btn" type="button">← Atrás</button>
+    <button id="btn-back-words" class="back-btn" type="button">
+      <i data-lucide="arrow-left" aria-hidden="true"></i><span>Atrás</span>
+    </button>
+    <div class="mira mira-sm mira-words" aria-hidden="true">
+      <div class="mira-anim"><div class="mira-tilt"><div class="mira-face">
+        <img class="mira-body" src="/assets/mira.png" alt=""
+          onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />
+      </div></div></div>
+    </div>
     <h2 id="words-title" data-screen-title></h2>
-    <div id="words-grid" class="words-grid"></div>
+    <p id="words-subtitle" class="submatrix-sub">¿Cuál te describe mejor?</p>
+    <div class="submatrix-stage">
+      <p class="submatrix-axis axis-top" id="axis-top"></p>
+      <div class="submatrix-row">
+        <p class="submatrix-axis axis-side" id="axis-side"></p>
+        <div id="submatrix-grid" class="submatrix-grid"></div>
+      </div>
+      <p class="submatrix-axis axis-bottom" id="axis-bottom"></p>
+    </div>
   </div>
 
   <!-- ─── Grabar ─────────────────────────────────────────────────────────── -->
   <div id="screen-record" class="screen">
-    <button id="btn-back-record" class="back-btn" type="button">← Atrás</button>
-    <h2 class="sr-only" data-screen-title>Graba tu voz</h2>
+    <button id="btn-back-record" class="back-btn" type="button">
+      <i data-lucide="arrow-left" aria-hidden="true"></i><span>Atrás</span>
+    </button>
+    <h2 class="sr-only" data-screen-title>Cuéntale a Mira</h2>
 
     <div class="record-stage">
       <span id="selected-emotion-badge" class="emotion-badge"></span>
-      <canvas id="waveform" aria-hidden="true"></canvas>
-      <button id="record-btn" class="record-btn" type="button"
-        aria-label="Tocar o mantener presionado para grabar tu voz">
-        <svg width="32" height="32" fill="white" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zm-1 14.93A8 8 0 0 1 4.07 10H6a6 6 0 0 0 12 0h1.93A8 8 0 0 1 13 16.93V20h3v2H8v-2h3v-3.07z"/>
-        </svg>
-      </button>
-      <p id="record-status" class="record-status" aria-live="polite">Toca o mantén presionado para hablar</p>
+
+      <div class="mira mira-sm mira-listen" aria-hidden="true">
+        <div class="mira-anim"><div class="mira-tilt"><div class="mira-face">
+          <img class="mira-body" src="/assets/mira.png" alt=""
+            onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />
+        </div></div></div>
+      </div>
+
+      <div class="mode-switch" role="tablist" aria-label="Forma de registrar">
+        <button id="mode-voz" class="mode-btn active" type="button" role="tab"
+          aria-selected="true" aria-controls="pane-voz">
+          <i data-lucide="mic" aria-hidden="true"></i><span>Hablar</span>
+        </button>
+        <button id="mode-texto" class="mode-btn" type="button" role="tab"
+          aria-selected="false" aria-controls="pane-texto">
+          <i data-lucide="pencil" aria-hidden="true"></i><span>Escribir</span>
+        </button>
+      </div>
+
+      <div id="pane-voz" class="record-pane" role="tabpanel"
+        aria-labelledby="mode-voz" tabindex="0">
+        <canvas id="waveform" aria-hidden="true"></canvas>
+        <p id="record-timer" class="record-timer hidden">0:00</p>
+        <button id="record-btn" class="record-btn" type="button"
+          aria-label="Tocar o mantener presionado para grabar tu voz">
+          <i data-lucide="mic" aria-hidden="true"></i>
+        </button>
+        <p id="record-status" class="record-status" aria-live="polite">Toca o mantén presionado para hablar</p>
+        <button id="btn-cancel-record" class="btn-cancel hidden" type="button">
+          <i data-lucide="x" aria-hidden="true"></i><span>Cancelar</span>
+        </button>
+      </div>
+
+      <div id="pane-texto" class="record-pane hidden" role="tabpanel"
+        aria-labelledby="mode-texto" tabindex="0">
+        <label for="text-input" class="sr-only">Escribe cómo te sientes</label>
+        <textarea id="text-input" rows="5"
+          placeholder="Escribe lo que sientes y por qué…"></textarea>
+        <button id="btn-text-continue" class="btn-primary" type="button">Continuar</button>
+      </div>
     </div>
   </div>
 
@@ -83,10 +152,19 @@
   <div id="screen-analyzing" class="screen">
     <div id="analyzing-main" class="analyzing-stage">
       <div class="mascota-orb">
-        <span class="orb-spark spark-1" aria-hidden="true"></span>
-        <span class="orb-spark spark-2" aria-hidden="true"></span>
-        <span class="orb-spark spark-3" aria-hidden="true"></span>
-        <img src="/assets/mira.png" alt="" onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" class="mascota mascota-lg mascota-think" />
+        <span class="orb-core" aria-hidden="true"></span>
+        <span class="orb-ring" aria-hidden="true"></span>
+        <span class="orb-ring" aria-hidden="true"></span>
+        <span class="orb-ring" aria-hidden="true"></span>
+        <span class="orb-mote spark-1" aria-hidden="true"></span>
+        <span class="orb-mote spark-2" aria-hidden="true"></span>
+        <span class="orb-mote spark-3" aria-hidden="true"></span>
+        <span class="orb-mote spark-4" aria-hidden="true"></span>
+        <div class="mira mira-lg mira-thinking" aria-hidden="true">
+          <div class="mira-think-sway"><div class="mira-anim"><div class="mira-tilt"><div class="mira-face">
+            <img class="mira-body" src="/assets/mira.png" alt=""
+              onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />          </div></div></div></div>
+        </div>
       </div>
       <h2 data-screen-title class="analyzing-title">Mira está reflexionando</h2>
       <p id="analyzing-status" class="analyzing-status" aria-live="polite">Escuchando lo que compartiste…</p>
@@ -105,14 +183,47 @@
   <!-- ─── Confirmar ──────────────────────────────────────────────────────── -->
   <div id="screen-confirm" class="screen">
     <div class="confirm-body">
-      <div class="confirm-header">
-        <img src="/assets/mira.png" alt="" onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" class="mascota mascota-sm" />
-        <h2 data-screen-title>Esto es lo que entendí</h2>
+      <!-- ── HÉROE: Mira animada + el mensaje de feedback ── -->
+      <div class="confirm-hero">
+        <div class="mira mira-hero" aria-hidden="true">
+          <div class="mira-anim"><div class="mira-tilt"><div class="mira-face">
+            <img class="mira-body" src="/assets/mira.png" alt=""
+              onerror="this.onerror=null;this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />
+          </div></div></div>
+        </div>
+        <h2 data-screen-title class="confirm-eyebrow">Esto es lo que entendí</h2>
+        <div id="feedback-card" class="feedback-card"></div>
       </div>
-      <div id="transcription-box" class="transcription-box hidden"></div>
-      <div id="ruler-display" class="ruler-display"></div>
+
+      <!-- ── SECUNDARIO: valoración, transcripción editable y detalles ── -->
+      <div class="confirm-secondary">
+        <div id="feedback-rating" class="feedback-rating">
+          <span class="feedback-rating-q">¿Te ayudó este mensaje?</span>
+          <div class="feedback-rating-btns">
+            <button id="rate-yes" class="rate-btn" type="button" aria-label="Sí, me ayudó">
+              <i data-lucide="thumbs-up" aria-hidden="true"></i>
+            </button>
+            <button id="rate-no" class="rate-btn" type="button" aria-label="No me ayudó">
+              <i data-lucide="thumbs-down" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="confirm-edit">
+          <label for="confirm-text" class="confirm-text-label">Lo que entendí que dijiste</label>
+          <textarea id="confirm-text" rows="3"></textarea>
+          <button id="btn-reanalyze" class="btn-ghost hidden" type="button">Actualizar análisis</button>
+        </div>
+
+        <button id="btn-details" class="btn-details" type="button">
+          <i data-lucide="sliders-horizontal" aria-hidden="true"></i><span>Ver detalles</span>
+        </button>
+      </div>
     </div>
-    <button id="btn-confirm-done" class="btn-primary" type="button">Listo</button>
+    <div class="confirm-actions">
+      <button id="btn-confirm-save" class="btn-primary" type="button">Guardar</button>
+      <button id="btn-confirm-cancel" class="btn-ghost" type="button">Cancelar</button>
+    </div>
   </div>
 
   <!-- ─── Historial ──────────────────────────────────────────────────────── -->
@@ -170,6 +281,20 @@
     </div>
   </div>
 
+  <!-- ─── Bottom drawer reutilizable ─────────────────────────────────────── -->
+  <div id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-backdrop"></div>
+    <div class="drawer-sheet" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <button class="drawer-handle" id="drawer-close" type="button" aria-label="Cerrar"></button>
+      <h3 id="drawer-title"></h3>
+      <div id="drawer-content"></div>
+    </div>
+  </div>
+
+  <!-- ─── Capa de transición morfológica (cuadrante ⇄ sub-matriz) ────────── -->
+  <!-- El panel que se expande/contrae vive aquí; lo crea y destruye app.js. -->
+  <div id="morph-layer" aria-hidden="true"></div>
+
   <!-- ─── Navegación ─────────────────────────────────────────────────────── -->
   <nav id="tab-bar" aria-label="Navegación principal">
     <button class="tab-btn active" data-screen="mood" type="button">
@@ -185,6 +310,12 @@
       <i data-lucide="message-circle" aria-hidden="true"></i><span>Chat</span>
     </button>
   </nav>
+
+  <!-- ─── Error de arranque (catálogo no disponible) ─────────────────────── -->
+  <div id="app-error" class="app-error hidden">
+    <p>No se pudo cargar Mirror. Revisa tu conexión.</p>
+    <button id="btn-app-retry" class="btn-primary" type="button">Reintentar</button>
+  </div>
 
   <script src="/app.js"></script>
   <script src="https://unpkg.com/lucide@1.16.0/dist/umd/lucide.min.js"></script>

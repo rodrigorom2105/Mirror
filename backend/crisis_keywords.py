@@ -1,10 +1,7 @@
-CRISIS_KEYWORDS = [
-    "suicidio", "suicidarme", "matarme", "quitarme la vida", "no quiero vivir",
-    "autolesión", "cortarme", "hacerme daño", "lastimarme",
-    "no vale la pena seguir", "mejor estaría muerto", "desaparecer para siempre",
-    "ya no puedo más", "fin de todo", "terminar con todo",
-]
+"""Compat: la lógica de crisis vive ahora en services/crisis_detector.py.
 
-def contains_crisis(text: str) -> bool:
-    text_lower = text.lower()
-    return any(kw in text_lower for kw in CRISIS_KEYWORDS)
+Este módulo se conserva para no romper los imports existentes
+(`from crisis_keywords import contains_crisis`). Reexporta el detector nuevo,
+que añade scoring, niveles, filtro de negación y de modismos.
+"""
+from services.crisis_detector import assess_crisis, contains_crisis  # noqa: F401

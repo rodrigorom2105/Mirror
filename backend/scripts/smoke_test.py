@@ -8,7 +8,7 @@ un servidor en marcha. Requiere:
 
 Uso:  cd backend && .venv/bin/python scripts/smoke_test.py
 
-El test crea entradas reales (vía /api/save y /api/entry). Para volver al
+El test crea entradas reales (vía /api/entry + /api/save). Para volver al
 estado limpio de demo: borra data/chroma_db y corre  python seed_data.py
 """
 import os
@@ -192,7 +192,7 @@ def test_chat(client):
 
 
 def test_entry(client, speech):
-    section("POST /api/entry — orquestación transcribe+analyze+save")
+    section("POST /api/entry — transcribe+analyze (sin guardar)")
     before = client.get("/api/history", params={"limit": 100}).json()["total"]
     t = time.perf_counter()
     r = client.post("/api/entry",
@@ -202,7 +202,7 @@ def test_entry(client, speech):
     ok = r.status_code == 200
     d = r.json() if ok else {}
     check("audio + emoción → 200", ok, f"HTTP {r.status_code} en {dt:.1f}s")
-    check("devuelve 'id'", bool(d.get("id")))
+    check("NO devuelve 'id' (no persiste)", "id" not in d)
     check("devuelve 'transcripcion'", bool((d.get("transcripcion") or "").strip()),
           repr((d.get("transcripcion") or "")[:55]))
     check("conserva 'emocion_seleccionada'", d.get("emocion_seleccionada") == "ansioso")
@@ -210,7 +210,19 @@ def test_entry(client, speech):
     check("incluye estructura RULER", not missing, "10/10" if not missing else f"faltan {missing}")
     check("incluye crisis_flag", "crisis_flag" in d)
     after = client.get("/api/history", params={"limit": 100}).json()["total"]
-    check("la entrada se persistió", after == before + 1, f"{after} (esperado {before + 1})")
+    check("/api/entry NO persiste (count sin cambio)", after == before, f"{after} (esperado {before})")
+
+    # Paso 2: persistir con /api/save enviando el ruler devuelto por /api/entry
+    r2 = client.post("/api/save", json=d)
+    ok2 = r2.status_code == 200
+    d2 = r2.json() if ok2 else {}
+    check("/api/save tras /api/entry → 200", ok2, f"HTTP {r2.status_code}")
+    check("/api/save devuelve 'id'", bool(d2.get("id")))
+    check("/api/save devuelve 'saved_at'", "saved_at" in d2, str(d2.get("saved_at")))
+    after_save = client.get("/api/history", params={"limit": 100}).json()["total"]
+    check("la entrada se persistió tras /api/save", after_save == before + 1,
+          f"{after_save} (esperado {before + 1})")
+
     r = client.post("/api/entry", files={"audio": ("v.aiff", speech, "audio/aiff")})
     check("sin emocion_seleccionada → 422", r.status_code == 422, f"HTTP {r.status_code}")
     r = client.post("/api/entry", data={"emocion_seleccionada": "feliz"})
