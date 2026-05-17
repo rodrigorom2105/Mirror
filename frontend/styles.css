@@ -295,13 +295,6 @@ body {
 @media (hover: hover) {
   .quadrant:hover { transform: translateY(-3px); }
 }
-/* Microfeedback al elegir un cuadrante: un pulso breve antes de avanzar */
-.quadrant.picked { animation: quadrantPick 0.32s var(--ease-spring); }
-@keyframes quadrantPick {
-  0%   { transform: scale(0.93); }
-  55%  { transform: scale(1.05); }
-  100% { transform: scale(1); }
-}
 
 .q-icon {
   margin-bottom: 8px;
@@ -486,7 +479,8 @@ body {
 /* Zoom del cuadrante al entrar a la sub-matriz */
 .mood-meter.dimmed .quadrant:not(.zooming) { opacity: 0.15; transform: scale(0.9); }
 .quadrant.zooming { transform: scale(1.35); z-index: 2; }
-.mood-meter .quadrant { transition: transform 0.26s var(--ease-soft), opacity 0.26s ease; }
+/* Acotado a .dimmed: solo durante el zoom, sin pisar la curva spring normal */
+.mood-meter.dimmed .quadrant { transition: transform 0.26s var(--ease-soft), opacity 0.26s ease; }
 #screen-words.active { animation: submatrixIn 0.4s var(--ease-soft) both; }
 @keyframes submatrixIn {
   from { opacity: 0; transform: scale(0.86); }
