@@ -303,11 +303,19 @@ body {
   100% { transform: scale(1); }
 }
 
-.q-emoji {
-  font-size: clamp(2rem, 7.5vw, 3rem);
-  line-height: 1;
-  margin-bottom: 6px;
+.q-icon {
+  margin-bottom: 8px;
+  line-height: 0;
 }
+.q-icon svg {
+  width: clamp(30px, 8vw, 44px);
+  height: clamp(30px, 8vw, 44px);
+  stroke-width: 1.75;
+}
+.quadrant-red .q-icon    { color: var(--red); }
+.quadrant-yellow .q-icon { color: var(--yellow); }
+.quadrant-blue .q-icon   { color: var(--blue); }
+.quadrant-green .q-icon  { color: var(--green); }
 .q-title {
   font-size: clamp(0.8rem, 2.8vw, 0.95rem);
   font-weight: 700;
@@ -369,6 +377,7 @@ body {
   transition: color 0.18s ease, transform 0.18s var(--ease-spring);
 }
 .back-btn:active { color: var(--text); transform: scale(0.96); }
+.back-btn svg { width: 18px; height: 18px; }
 
 .btn-primary {
   width: 100%;

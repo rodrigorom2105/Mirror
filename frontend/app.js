@@ -3,10 +3,10 @@ const API = ""; // same origin — backend serves frontend at root
 
 // ─── RULER DATA ───────────────────────────────────────────────────────────────
 const QUADRANTS = {
-  rojo:     { label: "🔴 Rojo",    words: ["furioso","enojado","frustrado","irritado","ansioso","tenso","preocupado","abrumado"] },
-  amarillo: { label: "🟡 Amarillo", words: ["emocionado","eufórico","feliz","optimista","motivado","inspirado","orgulloso","alegre"] },
-  azul:     { label: "🔵 Azul",    words: ["triste","decepcionado","desanimado","solo","agotado","vacío","melancólico","derrotado"] },
-  verde:    { label: "🟢 Verde",   words: ["calmado","sereno","agradecido","satisfecho","tranquilo","relajado","contento","en paz"] },
+  rojo:     { label: "Rojo",    words: ["furioso","enojado","frustrado","irritado","ansioso","tenso","preocupado","abrumado"] },
+  amarillo: { label: "Amarillo", words: ["emocionado","eufórico","feliz","optimista","motivado","inspirado","orgulloso","alegre"] },
+  azul:     { label: "Azul",    words: ["triste","decepcionado","desanimado","solo","agotado","vacío","melancólico","derrotado"] },
+  verde:    { label: "Verde",   words: ["calmado","sereno","agradecido","satisfecho","tranquilo","relajado","contento","en paz"] },
 };
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
