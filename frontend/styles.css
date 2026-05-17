@@ -619,6 +619,8 @@ body.morphing #screen-words.active { animation: none; }
 
 /* ─── Pantalla de grabación ─────────────────────────────────────────── */
 
+#screen-record.active { animation-duration: 0.18s; }
+
 .record-stage {
   flex: 1;
   display: flex;

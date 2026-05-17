@@ -53,7 +53,7 @@ function loadCatalog() {
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
 function showScreen(name) {
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".screen").forEach(s => { s.classList.remove("active"); s.style.animation = ""; });
   document.getElementById(`screen-${name}`)?.classList.add("active");
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.screen === name);
@@ -123,7 +123,39 @@ function populateSubmatrix(quadrant) {
       tile.classList.add("selected");
       state.selectedEmotion = word;
       document.getElementById("selected-emotion-badge").textContent = word;
-      setTimeout(() => showScreen("record"), 260);
+
+      const wordsScr = document.getElementById("screen-words");
+      const recScr   = document.getElementById("screen-record");
+
+      document.body.style.overflow = "hidden";
+
+      // Poner record encima de words, invisible
+      recScr.classList.add("active");
+      recScr.style.animation  = "none";
+      recScr.style.position   = "fixed";
+      recScr.style.inset      = "0";
+      recScr.style.zIndex     = "50";
+      recScr.style.opacity    = "0";
+
+      void recScr.offsetHeight; // forzar reflow
+
+      // Crossfade simultáneo
+      recScr.style.transition   = "opacity 0.22s ease";
+      recScr.style.opacity      = "1";
+      wordsScr.style.transition = "opacity 0.22s ease";
+      wordsScr.style.opacity    = "0";
+      wordsScr.style.pointerEvents = "none";
+
+      setTimeout(() => {
+        wordsScr.classList.remove("active");
+        wordsScr.style.cssText = "";
+        recScr.style.transition = "";
+        recScr.style.opacity    = "";
+        recScr.style.position   = "";
+        recScr.style.inset      = "";
+        recScr.style.zIndex     = "";
+        document.body.style.overflow = "";
+      }, 240);
     });
     grid.appendChild(tile);
   });
