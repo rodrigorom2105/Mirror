@@ -131,9 +131,12 @@ let analyser = null;
 let audioStream = null;
 let audioCtx = null;
 let recordStartTime = 0;
-let pointerIsDown = false;
-let toggleMode = false;
 let recordTimerInterval = null;
+// Máquina de estados: idle | arming (pidiendo micrófono) | recording | stopping
+let recState = "idle";
+let recMode = null;          // "hold" | "toggle" — cómo terminará la grabación
+let pressStartTs = 0;
+let stopWhenReady = false;   // el gesto "hold" terminó mientras se pedía el micrófono
 
 const TAP_THRESHOLD_MS = 350;  // por debajo: fue un toque → modo manos libres
 const MIN_RECORDING_MS = 500;  // ignora toques accidentales demasiado cortos
@@ -187,10 +190,14 @@ function cancelRecording() {
   if (mediaRecorder && mediaRecorder.state === "recording") {
     mediaRecorder.onstop = () => releaseAudioResources();
     mediaRecorder.stop();
+  } else {
+    releaseAudioResources();
   }
   cancelAnimationFrame(animFrame);
   stopRecordTimer();
-  toggleMode = false;
+  recState = "idle";
+  recMode = null;
+  stopWhenReady = false;
   audioChunks = [];
   recordBtn.classList.remove("recording", "toggle");
   btnCancelRecord.classList.add("hidden");
@@ -235,69 +242,89 @@ async function analyzeText(text) {
 }
 
 recordBtn.addEventListener("pointerdown", e => {
-  // setPointerCapture: el botón conserva el pointerup aunque el dedo
-  // se deslice fuera — el gesto "mantener" deja de cortarse solo.
+  // setPointerCapture: el botón conserva el pointerup aunque el dedo se deslice fuera.
   try { recordBtn.setPointerCapture(e.pointerId); } catch {}
-  pointerIsDown = true;
-  // Ya graba en modo manos libres → este toque la finaliza.
-  if (mediaRecorder && mediaRecorder.state === "recording") {
+  // Si ya graba en modo manos libres, este toque la finaliza.
+  if (recState === "recording" && recMode === "toggle") {
     finishRecording();
     return;
   }
-  toggleMode = false;
-  startRecording();
+  if (recState !== "idle") return; // ignora gestos mientras arma/detiene
+  pressStartTs = Date.now();
+  recMode = "hold";                // por defecto; pointerup puede pasarlo a "toggle"
+  stopWhenReady = false;
+  beginRecording();
 });
 
 recordBtn.addEventListener("pointerup", () => {
-  pointerIsDown = false;
-  if (!mediaRecorder || mediaRecorder.state !== "recording") return;
-  const elapsed = Date.now() - recordStartTime;
-  if (elapsed < TAP_THRESHOLD_MS) {
+  if (recMode !== "hold") return;  // ya pasó a toggle, o no hay gesto activo
+  const held = Date.now() - pressStartTs;
+  if (held < TAP_THRESHOLD_MS) {
     // Toque corto → modo manos libres: sigue grabando hasta el próximo toque.
-    toggleMode = true;
-    recordBtn.classList.add("toggle");
-    recordStatus.textContent = "Grabando… toca para terminar";
+    recMode = "toggle";
+    if (recState === "recording") {
+      recordBtn.classList.add("toggle");
+      recordStatus.textContent = "Grabando… toca para terminar";
+    }
+    // Si aún está en "arming", beginRecording verá recMode === "toggle" y continuará.
+  } else if (recState === "recording") {
+    finishRecording();             // se mantuvo presionado → termina al soltar
   } else {
-    // Se mantuvo presionado → termina al soltar.
-    finishRecording();
+    stopWhenReady = true;          // soltó durante "arming" → terminar al estar listo
   }
 });
 
 recordBtn.addEventListener("pointercancel", () => {
-  pointerIsDown = false;
-  if (!toggleMode) finishRecording();
+  if (recMode === "hold") {
+    if (recState === "recording") finishRecording();
+    else stopWhenReady = true;
+  }
 });
 
 // Soporte de teclado: Enter/Espacio alterna la grabación (modo manos libres).
 recordBtn.addEventListener("click", e => {
   if (e.detail !== 0) return; // ignora el click sintético que sigue al pointer
-  if (mediaRecorder && mediaRecorder.state === "recording") {
+  if (recState === "recording") {
     finishRecording();
-  } else {
-    toggleMode = true;
-    startRecording();
+  } else if (recState === "idle") {
+    recMode = "toggle";
+    stopWhenReady = false;
+    beginRecording();
   }
 });
 
-async function startRecording() {
-  if (mediaRecorder && mediaRecorder.state === "recording") return;
+async function beginRecording() {
+  recState = "arming";
   if (!navigator.mediaDevices?.getUserMedia) {
     recordStatus.textContent = "La grabación necesita HTTPS o localhost.";
+    recState = "idle";
+    recMode = null;
     return;
   }
-
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
     recordStatus.textContent = "No se pudo acceder al micrófono. Revisa los permisos.";
     console.error(err);
+    recState = "idle";
+    recMode = null;
     return;
   }
-
-  // El usuario soltó el botón mientras se pedía el permiso: no grabar.
-  if (!pointerIsDown && !toggleMode) {
+  // Algo canceló la grabación mientras se pedía el permiso (cambio de pestaña,
+  // cancelar, navegación): descartar el stream y no grabar.
+  if (recState !== "arming") {
     stream.getTracks().forEach(t => t.stop());
+    return;
+  }
+  // El gesto fue un "hold" demasiado corto que terminó mientras se pedía el
+  // permiso: descartar el stream sin grabar nada.
+  if (stopWhenReady && recMode === "hold") {
+    stream.getTracks().forEach(t => t.stop());
+    recState = "idle";
+    recMode = null;
+    stopWhenReady = false;
+    recordStatus.textContent = "Toca o mantén presionado para hablar";
     return;
   }
 
@@ -313,36 +340,45 @@ async function startRecording() {
   mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
   mediaRecorder.start();
   recordStartTime = Date.now();
+  recState = "recording";
 
   recordBtn.classList.add("recording");
+  if (recMode === "toggle") {
+    recordBtn.classList.add("toggle");
+    recordStatus.textContent = "Grabando… toca para terminar";
+  } else {
+    recordStatus.textContent = "Grabando…";
+  }
   btnCancelRecord.classList.remove("hidden");
   startRecordTimer();
-  recordStatus.textContent = "Grabando…";
   resizeWaveCanvas();
   drawWaveform();
+
+  // Si mientras se pedía el micrófono el usuario ya soltó un "hold" largo.
+  if (stopWhenReady) finishRecording();
 }
 
 function finishRecording() {
-  if (!mediaRecorder || mediaRecorder.state === "inactive") return;
+  if (recState !== "recording" || !mediaRecorder) return;
   const elapsed = Date.now() - recordStartTime;
-  toggleMode = false;
-  recordBtn.classList.remove("toggle");
+  recState = "stopping";
+  recMode = null;
+  stopWhenReady = false;
+  recordBtn.classList.remove("recording", "toggle");
   stopRecordTimer();
   btnCancelRecord.classList.add("hidden");
+  cancelAnimationFrame(animFrame);
 
   mediaRecorder.onstop = () => {
     releaseAudioResources();
+    recState = "idle";
     if (elapsed < MIN_RECORDING_MS) {
       recordStatus.textContent = "Mantén presionado o toca para grabar un poco más.";
       return;
     }
-    const blob = new Blob(audioChunks, { type: "audio/webm" });
-    analyzeEntry(blob); // transcribe + analiza automáticamente
+    analyzeEntry(new Blob(audioChunks, { type: "audio/webm" }));
   };
-
   mediaRecorder.stop();
-  recordBtn.classList.remove("recording");
-  cancelAnimationFrame(animFrame);
 }
 
 // Libera el micrófono y el AudioContext — sin esto el indicador de micrófono
@@ -614,7 +650,9 @@ function resetRecordState() {
   state.audioBlob = null;
   state.pendingText = null;
   state.rulerResult = null;
-  toggleMode = false;
+  recState = "idle";
+  recMode = null;
+  stopWhenReady = false;
   const box = document.getElementById("transcription-box");
   box.classList.add("hidden");
   box.textContent = "";
