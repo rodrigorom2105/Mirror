@@ -16,8 +16,8 @@ pip install -r requirements.txt
 cp ../.env.example ../.env   # editar con tus paths reales
 
 # 3. Instalar Ollama y modelos
-ollama pull qwen2.5:7b-instruct
-ollama pull nomic-embed-text
+ollama pull qwen3:4b-instruct
+ollama pull qwen3-embedding:0.6b
 
 # 4. Instalar whisper.cpp (o descomentar faster-whisper en whisper_service.py)
 # Ver: https://github.com/ggerganov/whisper.cpp
@@ -76,7 +76,7 @@ mirror/
 ## Fallbacks
 
 - **STT:** si whisper.cpp no compila → descomentar `faster-whisper` en `backend/services/whisper_service.py`
-- **LLM:** si qwen2.5 es lento → cambiar `LLM_MODEL=llama3.1:8b-instruct` en `.env`
+- **LLM:** ajustable con `LLM_MODEL` en `.env` (ej. `qwen3:8b-instruct` para más calidad)
 
 ## Líneas de ayuda (integradas en app)
 
