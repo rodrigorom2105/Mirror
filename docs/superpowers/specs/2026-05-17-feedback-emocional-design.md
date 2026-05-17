@@ -34,6 +34,9 @@ Este proyecto tiene dos partes acopladas:
 8. La animación de carga ("Mira reflexionando") se siente estética y suave.
 9. La pantalla de resultados muestra el feedback de la IA, permite corregir el texto
    detectado, y abre los detalles en un bottom drawer reutilizable.
+10. La app respeta el **modo noche** del sistema (`prefers-color-scheme`).
+11. Limpieza: catálogo de emociones unificado en una sola fuente, y
+    `services/reasoning_pipeline.py` eliminado.
 
 ## Decisiones tomadas (brainstorming)
 
@@ -68,9 +71,11 @@ endpoint `/api/companion`). Tiene una compuerta que a veces no devuelve nada.
 - `entry_feedback.py` reutiliza `profile_service` (contexto del usuario),
   `relevance` (filtrado de fuentes), `llm_service` (generación) y el catálogo de
   emociones (A2).
-- Se **retira** el disparador `on_open` y el endpoint `/api/companion` (`routes/companion.py`);
-  el feedback ya no aparece al abrir la app. `reasoning_pipeline.py` queda en el repo
-  sin disparadores activos (limpieza posterior fuera de alcance).
+- Se **retira** el disparador `on_open` y el endpoint `/api/companion`; el feedback ya
+  no aparece al abrir la app. Se **eliminan** `services/reasoning_pipeline.py` y
+  `routes/companion.py`. La implementación debe verificar con un grep que ningún otro
+  módulo los importe; si `signals_engine.py` queda huérfano, el plan lo señala pero no
+  lo borra (puede servir a Patrones a futuro).
 - Prompt nuevo `prompts/entry_feedback.txt`, específico del registro emocional, con los
   dos modos descritos en A3. Reemplaza el uso de `prompts/companion.txt` para este flujo.
 - El chat (`routes/chat.py`, `prompts/chat_system.txt`) **no se toca**.
@@ -90,10 +95,11 @@ intensidad_final = clamp(intensidad_final, 1, 10)
 
 **`intensidad_emocion` (60%)** — determinista, por posición en la sub-matriz:
 
-- Catálogo nuevo `services/emotion_catalog.py`: las mismas 4 listas de 12 emociones
-  ordenadas de leve→intensa que el `QUADRANTS` del frontend. Es la fuente única para
-  mapear nombre→posición. Debe mantenerse sincronizado con `frontend/app.js` (comentario
-  explícito en ambos archivos).
+- El catálogo de emociones es una **fuente única** (`backend/data/emotion_catalog.json`,
+  ver B8): 4 cuadrantes con sus 12 emociones ordenadas de leve→intensa. El servicio
+  `services/emotion_catalog.py` lo carga y expone el mapeo nombre→posición. Se elimina
+  la duplicación: el `QUADRANTS` hardcodeado de `app.js` desaparece y el frontend
+  obtiene el catálogo de `GET /api/emotions`.
 - Posición `i` (0-11) → intensidad `1 + i · (9/11)` → rango [1, 10].
 - Combinación con secundarias:
   ```
@@ -168,6 +174,7 @@ funcionando independiente del feedback.
   campo opcional `reaccion_feedback`. Response: `{id, saved_at}`. Ya **no** genera
   feedback ni devuelve `acompanamiento`.
 - **`POST /api/feedback/reaction`** — `{entry_id, reaccion}` → `{ok: true}`.
+- **`GET /api/emotions`** — devuelve el catálogo unificado de emociones (ver B8).
 - **`/api/companion`** — se elimina.
 
 ---
@@ -258,18 +265,68 @@ local, y lo envía:
 - en `/api/entry` como campo del `FormData`,
 - en `/api/analyze` como campo del cuerpo JSON.
 
+## B7 · Modo noche (`prefers-color-scheme`)
+
+El revamp creó el tema claro "crema" con variables CSS en `:root`. El modo noche es una
+variante oscura cálida que se activa **automáticamente** con la preferencia del sistema
+(`@media (prefers-color-scheme: dark)`); sin toggle manual.
+
+Como todo el tema se basa en variables CSS, el modo noche solo **sobreescribe las
+variables** de `:root`. Paleta oscura cálida (no azul frío), derivada de la crema:
+
+| Variable | Claro | Oscuro |
+|---|---|---|
+| `--bg` | `#F7F1E6` | `#1A1714` |
+| `--surface` | `#FCF8F0` | `#23201B` |
+| `--surface-2` | `#F1E9D8` | `#2E2A23` |
+| `--border` | `rgba(120,100,70,.14)` | `rgba(220,200,170,.12)` |
+| `--text` | `#4A4338` | `#EDE6D8` |
+| `--text-dim` | `#6E665C` | `#A89E8E` |
+| `--indigo` | `#5B53C9` | `#8C84E6` |
+| `--indigo-light` | `#7D72D6` | `#A49CEC` |
+
+Cuadrantes — base (texto/borde) y superficie:
+- **rojo:** base `#E08A6E`, superficie `#3A2A24`
+- **amarillo:** base `#D9B25C`, superficie `#3A3324`
+- **azul:** base `#8FAAC4`, superficie `#26303A`
+- **verde:** base `#8FB592`, superficie `#26332A`
+
+Detalles:
+- Las sombras y gradientes hoy hardcodeados que no usen variables se trasladan a
+  variables CSS (o se sobreescriben dentro del bloque oscuro).
+- `<meta name="theme-color">` gana una segunda etiqueta con
+  `media="(prefers-color-scheme: dark)"` y el color `#1A1714`.
+- Verificar contraste WCAG AA de todo el texto sobre la paleta oscura.
+
+## B8 · Catálogo de emociones unificado
+
+Hoy las 4 listas ordenadas de emociones viven hardcodeadas en `QUADRANTS` (`app.js`), y
+el backend necesita las mismas para la intensidad (A2). Se unifican en **una sola
+fuente** para que no haya que sincronizar a mano:
+
+- `backend/data/emotion_catalog.json` es la fuente única: 4 cuadrantes, cada uno con
+  `name`, `icon`, etiquetas de eje RULER y la lista ordenada de 12 emociones.
+- El backend lo carga vía `services/emotion_catalog.py` y lo expone en `GET /api/emotions`.
+- El frontend hace `fetch('/api/emotions')` al iniciar y construye `QUADRANTS` desde la
+  respuesta; el objeto `QUADRANTS` hardcodeado en `app.js` se elimina.
+- Mientras llega el catálogo se muestra la intro normal de la app; si el fetch falla por
+  completo, se muestra un estado de reintento.
+- El service worker (`sw.js`) cachea `/api/emotions` para que la app funcione offline.
+
 ---
 
 ## Archivos afectados
 
 **Backend — crear:**
 - `backend/services/entry_feedback.py` — generación de feedback + `compute_intensity()`.
-- `backend/services/emotion_catalog.py` — catálogo ordenado de emociones.
+- `backend/services/emotion_catalog.py` — carga del catálogo y mapeo nombre→posición.
+- `backend/data/emotion_catalog.json` — fuente única del catálogo de emociones.
 - `backend/prompts/entry_feedback.txt` — prompt del feedback en dos modos.
 
 **Backend — modificar:**
 - `backend/routes/emotion.py` — `/api/analyze`, `/api/entry`, `/api/save`,
-  nuevo `/api/feedback/reaction`; integrar `entry_feedback` e intensidad.
+  nuevo `/api/feedback/reaction`, nuevo `GET /api/emotions`; integrar `entry_feedback`
+  e intensidad.
 - `backend/services/memory_service.py` — guardar `feedback_*` y `client_time` en
   metadata; `collection.update()` para la reacción; consulta de mensajes "que ayudaron".
 - `backend/prompts/ruler_extraction.txt` — anclas de calibración de intensidad.
@@ -277,14 +334,17 @@ local, y lo envía:
 
 **Backend — eliminar:**
 - `backend/routes/companion.py` y el endpoint `/api/companion`.
+- `backend/services/reasoning_pipeline.py`.
 
 **Frontend — modificar:**
 - `frontend/app.js` — máquina de estados de grabación, transición Mood Meter, envío de
-  `client_time`, pantalla de resultados, componente drawer, historial clicable.
+  `client_time`, pantalla de resultados, componente drawer, historial clicable, fetch
+  del catálogo en `/api/emotions` y eliminación del `QUADRANTS` hardcodeado.
 - `frontend/index.html` — `#screen-confirm` reordenado, marcado del bottom drawer,
-  control "¿Te ayudó?".
+  control "¿Te ayudó?", `<meta name="theme-color">` para modo noche.
 - `frontend/styles.css` — transición Mood Meter, aura de carga, estilos del drawer,
-  estilos del campo editable y del control de reacción.
+  campo editable, control de reacción, y el bloque oscuro `prefers-color-scheme`.
+- `frontend/sw.js` — cachear `/api/emotions`.
 
 ## Flujo completo (después del cambio)
 
@@ -309,20 +369,20 @@ Historial ── tap tarjeta ──> bottom drawer (RULER + feedback + reacción
 - **Backend (pytest):** `compute_intensity()` con distintas emociones/secundarias da
   valores distintos; selección de modo (`apoyo` vs `ligero`) según cuadrante e
   intensidad; lookup del catálogo con acentos/mayúsculas; derivación de franja horaria;
-  contratos de `/api/analyze`, `/api/entry`, `/api/save`, `/api/feedback/reaction`.
+  contratos de `/api/analyze`, `/api/entry`, `/api/save`, `/api/feedback/reaction`,
+  `GET /api/emotions`; la suite completa corre limpia tras eliminar `reasoning_pipeline.py`.
 - **Frontend (navegador, Chrome DevTools MCP):** grabación tap y hold, cancelar, que el
   micrófono se apague siempre; transición orgánica del Mood Meter; aura de carga;
   pantalla de resultados con feedback, edición de texto y "Actualizar análisis";
-  bottom drawer desde resultados y desde el historial; reacción "¿Te ayudó?".
-- Verificar `prefers-reduced-motion`.
+  bottom drawer desde resultados y desde el historial; reacción "¿Te ayudó?"; el Mood
+  Meter se construye desde `/api/emotions`.
+- Verificar `prefers-reduced-motion` y el modo noche (`prefers-color-scheme: dark`),
+  con contraste WCAG AA en la paleta oscura.
 - Verificar que el feedback varíe entre registros (intensidad y tono distintos).
 
 ## Fuera de alcance
 
 - Bucle completo de personalización con ML (solo se reutilizan ejemplos "que ayudaron").
-- Modo noche / `prefers-color-scheme`.
 - Reproducir el audio grabado.
 - Rediseño del chat, de Patrones o del Historial más allá de lo descrito.
-- Limpieza/eliminación de `services/reasoning_pipeline.py` (queda inactivo).
-- Unificar el catálogo de emociones en una fuente compartida backend↔frontend
-  (por ahora se duplica con un comentario de sincronización).
+- Toggle manual de tema (el modo noche solo sigue la preferencia del sistema).
