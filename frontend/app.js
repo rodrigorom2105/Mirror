@@ -35,6 +35,7 @@ let state = {
   selectedQuadrant: null,
   selectedEmotion: null,
   audioBlob: null,
+  pendingText: null,
   rulerResult: null,
   inputMode: "voz",
 };
@@ -195,6 +196,7 @@ document.getElementById("btn-text-continue").addEventListener("click", () => {
 });
 
 async function analyzeText(text) {
+  state.pendingText = text;
   startAnalyzingCopy();
   showScreen("analyzing");
   const fullText = `Emoción seleccionada: ${state.selectedEmotion}. ${text}`;
@@ -393,10 +395,10 @@ function onAnalysisReady(data) {
     box.classList.add("hidden");
   }
   renderRulerDisplay(data);
-  // /api/entry y /api/analyze NO devuelven acompañamiento (data.acompanamiento es
-  // undefined aquí) → renderAcompanamiento lo oculta. El acompañamiento real llega
-  // al guardar, en el handler de Guardar.
-  renderAcompanamiento(data.acompanamiento);
+  // /api/entry y /api/analyze no devuelven acompañamiento → se pasa null
+  // explícitamente para que renderAcompanamiento lo oculte. El acompañamiento
+  // real llega al guardar, en el handler de Guardar.
+  renderAcompanamiento(null);
   showScreen("confirm");
 }
 
@@ -456,6 +458,7 @@ function showAnalyzingError(message) {
 
 document.getElementById("btn-analyzing-retry").addEventListener("click", () => {
   if (state.audioBlob) analyzeEntry(state.audioBlob);
+  else if (state.pendingText) analyzeText(state.pendingText);
 });
 document.getElementById("btn-analyzing-back").addEventListener("click", () => {
   resetRecordState();
@@ -586,6 +589,7 @@ btnConfirmDone.addEventListener("click", () => {
 
 function resetRecordState() {
   state.audioBlob = null;
+  state.pendingText = null;
   state.rulerResult = null;
   toggleMode = false;
   const box = document.getElementById("transcription-box");
