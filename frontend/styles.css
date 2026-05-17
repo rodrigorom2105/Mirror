@@ -419,17 +419,11 @@ body {
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text);
-  margin: 0 0 18px;
+  margin: 0 0 4px;
 }
 #words-title { text-align: center; }
 
-.words-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
-}
-
+/* .emotion-chip y .emotion-chip-sm los usa la pantalla de Patrones */
 .emotion-chip {
   padding: 11px 20px;
   border-radius: 999px;
@@ -454,19 +448,49 @@ body {
   box-shadow: 0 8px 20px rgba(91, 83, 201, 0.28);
 }
 
-/* Entrada escalonada de los chips al abrir la pantalla de palabras */
-#words-grid .emotion-chip { animation: chipIn 0.4s var(--ease-soft) both; }
-#words-grid .emotion-chip:nth-child(1) { animation-delay: 0.04s; }
-#words-grid .emotion-chip:nth-child(2) { animation-delay: 0.08s; }
-#words-grid .emotion-chip:nth-child(3) { animation-delay: 0.12s; }
-#words-grid .emotion-chip:nth-child(4) { animation-delay: 0.16s; }
-#words-grid .emotion-chip:nth-child(5) { animation-delay: 0.20s; }
-#words-grid .emotion-chip:nth-child(6) { animation-delay: 0.24s; }
-#words-grid .emotion-chip:nth-child(7) { animation-delay: 0.28s; }
-#words-grid .emotion-chip:nth-child(8) { animation-delay: 0.32s; }
 @keyframes chipIn {
   from { opacity: 0; transform: translateY(10px) scale(0.92); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Sub-matriz de emociones ───────────────────────────────────────── */
+
+.submatrix-sub { text-align: center; color: var(--text-dim); font-size: 0.9rem; margin: -8px 0 14px; }
+.submatrix-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+.submatrix-stage.q-rojo     { --q-base: var(--red);    --q-soft: var(--red-soft);    --q-ink: var(--red); }
+.submatrix-stage.q-amarillo { --q-base: var(--yellow); --q-soft: var(--yellow-soft); --q-ink: #8A6618; }
+.submatrix-stage.q-azul     { --q-base: var(--blue);   --q-soft: var(--blue-soft);   --q-ink: var(--blue); }
+.submatrix-stage.q-verde    { --q-base: var(--green);  --q-soft: var(--green-soft);  --q-ink: var(--green); }
+.submatrix-axis { color: var(--text-dim); font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase; text-align: center; margin: 0; }
+.submatrix-row { display: flex; align-items: stretch; gap: 8px; margin: 9px 0; }
+.axis-side { writing-mode: vertical-rl; transform: rotate(180deg); flex-shrink: 0; }
+.submatrix-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; flex: 1; }
+.sub-emotion {
+  --t: 0;
+  border: 1px solid color-mix(in srgb, var(--q-base) 30%, transparent);
+  border-radius: 14px;
+  padding: 14px 6px;
+  font: inherit; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer;
+  color: var(--q-ink);
+  background: color-mix(in srgb, var(--q-base) calc(18% + var(--t) * 70%), var(--q-soft));
+  transition: transform 0.18s var(--ease-spring), box-shadow 0.18s ease;
+  animation: chipIn 0.4s var(--ease-soft) both;
+}
+.sub-emotion.is-intense { color: #fff; }
+.sub-emotion:active { transform: scale(0.94); }
+.sub-emotion.selected { box-shadow: 0 0 0 2.5px var(--q-base); transform: scale(1.04); }
+@media (hover: hover) { .sub-emotion:hover { transform: translateY(-2px); } }
+
+/* Zoom del cuadrante al entrar a la sub-matriz */
+.mood-meter.dimmed .quadrant:not(.zooming) { opacity: 0.15; transform: scale(0.9); }
+.quadrant.zooming { transform: scale(1.35); z-index: 2; }
+.mood-meter .quadrant { transition: transform 0.26s var(--ease-soft), opacity 0.26s ease; }
+#screen-words.active { animation: submatrixIn 0.4s var(--ease-soft) both; }
+@keyframes submatrixIn {
+  from { opacity: 0; transform: scale(0.86); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 /* ─── Pantalla de grabación ─────────────────────────────────────────── */

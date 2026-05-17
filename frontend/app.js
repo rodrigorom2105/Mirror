@@ -3,10 +3,30 @@ const API = ""; // same origin — backend serves frontend at root
 
 // ─── RULER DATA ───────────────────────────────────────────────────────────────
 const QUADRANTS = {
-  rojo:     { label: "Rojo",    words: ["furioso","enojado","frustrado","irritado","ansioso","tenso","preocupado","abrumado"] },
-  amarillo: { label: "Amarillo", words: ["emocionado","eufórico","feliz","optimista","motivado","inspirado","orgulloso","alegre"] },
-  azul:     { label: "Azul",    words: ["triste","decepcionado","desanimado","solo","agotado","vacío","melancólico","derrotado"] },
-  verde:    { label: "Verde",   words: ["calmado","sereno","agradecido","satisfecho","tranquilo","relajado","contento","en paz"] },
+  rojo: {
+    name: "Alta tensión", icon: "flame",
+    emotions: ["nervioso","inquieto","preocupado","tenso","ansioso","irritado",
+               "molesto","frustrado","estresado","abrumado","enojado","furioso"],
+    axisTop: "Más alterado", axisBottom: "Más calmado", axisSide: "Más desagradable",
+  },
+  amarillo: {
+    name: "Energía positiva", icon: "sun",
+    emotions: ["optimista","motivado","animado","alegre","feliz","entusiasmado",
+               "inspirado","orgulloso","emocionado","sorprendido","eufórico","radiante"],
+    axisTop: "Más intenso", axisBottom: "Más sereno", axisSide: "Más agradable",
+  },
+  azul: {
+    name: "Baja energía", icon: "cloud-rain",
+    emotions: ["desganado","aburrido","nostálgico","melancólico","desanimado","decepcionado",
+               "triste","solo","agotado","vacío","derrotado","abatido"],
+    axisTop: "Más leve", axisBottom: "Más hundido", axisSide: "Más desagradable",
+  },
+  verde: {
+    name: "Paz interior", icon: "leaf",
+    emotions: ["cómodo","contento","satisfecho","tranquilo","relajado","calmado",
+               "sereno","agradecido","pleno","seguro","en paz","descansado"],
+    axisTop: "Más activo", axisBottom: "Más profundo", axisSide: "Más agradable",
+  },
 };
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
@@ -41,35 +61,48 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 document.querySelectorAll(".quadrant").forEach(q => {
   q.addEventListener("click", () => {
     state.selectedQuadrant = q.dataset.q;
-    // Microfeedback: un pulso breve antes de avanzar a las palabras.
-    q.classList.add("picked");
+    const meter = document.querySelector(".mood-meter");
+    q.classList.add("zooming");
+    meter.classList.add("dimmed");
     setTimeout(() => {
-      q.classList.remove("picked");
-      showWordScreen(q.dataset.q);
-    }, 240);
+      q.classList.remove("zooming");
+      meter.classList.remove("dimmed");
+      renderSubmatrix(q.dataset.q);
+      showScreen("words");
+    }, 260);
   });
 });
 
-function showWordScreen(quadrant) {
+function renderSubmatrix(quadrant) {
   const data = QUADRANTS[quadrant];
-  document.getElementById("words-title").textContent = `${data.label} — ¿cuál te describe mejor?`;
-  const grid = document.getElementById("words-grid");
+  const stage = document.querySelector(".submatrix-stage");
+  stage.className = `submatrix-stage q-${quadrant}`;
+  document.getElementById("words-title").textContent = data.name;
+  document.getElementById("axis-top").textContent = `↑ ${data.axisTop}`;
+  document.getElementById("axis-bottom").textContent = `${data.axisBottom} ↓`;
+  document.getElementById("axis-side").textContent = data.axisSide;
+
+  const grid = document.getElementById("submatrix-grid");
   grid.innerHTML = "";
-  data.words.forEach(word => {
-    const chip = document.createElement("button");
-    chip.className = "emotion-chip";
-    chip.type = "button";
-    chip.textContent = word;
-    chip.addEventListener("click", () => {
-      document.querySelectorAll(".emotion-chip").forEach(c => c.classList.remove("selected"));
-      chip.classList.add("selected");
+  const n = data.emotions.length;
+  // Más intensa arriba: se invierte el arreglo (que va de leve a intensa).
+  [...data.emotions].reverse().forEach((word, idx) => {
+    const t = (n - 1 - idx) / (n - 1); // 1 = más intensa, 0 = más leve
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "sub-emotion" + (t >= 0.55 ? " is-intense" : "");
+    tile.style.setProperty("--t", t.toFixed(3));
+    tile.style.animationDelay = `${idx * 0.03}s`;
+    tile.textContent = word;
+    tile.addEventListener("click", () => {
+      document.querySelectorAll(".sub-emotion").forEach(c => c.classList.remove("selected"));
+      tile.classList.add("selected");
       state.selectedEmotion = word;
       document.getElementById("selected-emotion-badge").textContent = word;
-      setTimeout(() => showScreen("record"), 280);
+      setTimeout(() => showScreen("record"), 260);
     });
-    grid.appendChild(chip);
+    grid.appendChild(tile);
   });
-  showScreen("words");
 }
 
 document.getElementById("btn-back-words").addEventListener("click", () => showScreen("mood"));

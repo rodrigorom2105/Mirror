@@ -60,11 +60,21 @@
     </section>
   </div>
 
-  <!-- ─── Palabras ───────────────────────────────────────────────────────── -->
+  <!-- ─── Palabras (sub-matriz de emociones) ────────────────────────────── -->
   <div id="screen-words" class="screen">
-    <button id="btn-back-words" class="back-btn" type="button"><i data-lucide="arrow-left" aria-hidden="true"></i><span>Atrás</span></button>
+    <button id="btn-back-words" class="back-btn" type="button">
+      <i data-lucide="arrow-left" aria-hidden="true"></i><span>Atrás</span>
+    </button>
     <h2 id="words-title" data-screen-title></h2>
-    <div id="words-grid" class="words-grid"></div>
+    <p id="words-subtitle" class="submatrix-sub">¿Cuál te describe mejor?</p>
+    <div class="submatrix-stage">
+      <p class="submatrix-axis axis-top" id="axis-top"></p>
+      <div class="submatrix-row">
+        <p class="submatrix-axis axis-side" id="axis-side"></p>
+        <div id="submatrix-grid" class="submatrix-grid"></div>
+      </div>
+      <p class="submatrix-axis axis-bottom" id="axis-bottom"></p>
+    </div>
   </div>
 
   <!-- ─── Grabar ─────────────────────────────────────────────────────────── -->
