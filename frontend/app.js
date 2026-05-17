@@ -79,7 +79,9 @@ function renderSubmatrix(quadrant) {
   const data = QUADRANTS[quadrant];
   const stage = document.querySelector(".submatrix-stage");
   stage.className = `submatrix-stage q-${quadrant}`;
-  document.getElementById("words-title").textContent = data.name;
+  const wordsTitleEl = document.getElementById("words-title");
+  wordsTitleEl.textContent = data.name;
+  animateWords(wordsTitleEl);
   document.getElementById("axis-top").textContent = `↑ ${data.axisTop}`;
   document.getElementById("axis-bottom").textContent = `${data.axisBottom} ↓`;
   document.getElementById("axis-side").textContent = data.axisSide;
@@ -440,6 +442,9 @@ function startAnalyzingCopy() {
   clearInterval(analyzingTimer);
   analyzingTimer = setInterval(() => {
     i = (i + 1) % ANALYZING_MESSAGES.length;
+    el.style.animation = "none";
+    void el.offsetWidth; // fuerza reflow para reiniciar la animación
+    el.style.animation = "";
     el.textContent = ANALYZING_MESSAGES[i];
   }, 2200);
 }
@@ -612,7 +617,7 @@ function resetRecordState() {
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
 async function loadHistory() {
   const container = document.getElementById("history-list");
-  container.innerHTML = `<div class="spinner mx-auto mt-8"></div>`;
+  container.innerHTML = skeletonCards(4);
   try {
     const res = await fetch(`${API}/api/history?limit=30`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -648,7 +653,7 @@ function formatDate(iso) {
 // ─── PATTERNS ─────────────────────────────────────────────────────────────────
 async function loadPatterns() {
   const container = document.getElementById("patterns-container");
-  container.innerHTML = `<div class="spinner mx-auto mt-8"></div>`;
+  container.innerHTML = skeletonCards(3);
   try {
     const res = await fetch(`${API}/api/patterns`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -770,5 +775,37 @@ function onCrisisKeydown(e) {
 
 document.getElementById("btn-close-crisis").addEventListener("click", closeCrisisModal);
 
+// ─── UTILIDADES DE ANIMACIÓN ──────────────────────────────────────────────────
+
+/** Anima la entrada de un elemento texto palabra por palabra. */
+function animateWords(el) {
+  const words = el.textContent.trim().split(/\s+/);
+  el.textContent = "";
+  el.classList.add("word-anim");
+  words.forEach((w, i) => {
+    const span = document.createElement("span");
+    span.className = "word";
+    span.textContent = w;
+    span.style.animationDelay = `${i * 0.07}s`;
+    el.appendChild(span);
+    if (i < words.length - 1) el.appendChild(document.createTextNode(" "));
+  });
+}
+
+/** Genera n tarjetas skeleton para indicar carga. */
+function skeletonCards(n = 4) {
+  return Array.from({ length: n }, () => `
+    <div class="skeleton-card">
+      <div class="skel-line w-40"></div>
+      <div class="skel-line w-80"></div>
+      <div class="skel-line w-60"></div>
+    </div>`).join("");
+}
+
 // ─── ARRANQUE ─────────────────────────────────────────────────────────────────
+
+// Anima la tagline de la pantalla principal al cargar la app.
+const taglineEl = document.querySelector("#screen-mood .tagline");
+if (taglineEl) animateWords(taglineEl);
+
 loadHomeCompanion();
