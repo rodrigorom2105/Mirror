@@ -194,8 +194,27 @@ document.getElementById("btn-text-continue").addEventListener("click", () => {
   analyzeText(txt); // definido en la Task 6
 });
 
-// Stub temporal hasta Task 6
-function analyzeText(t) { console.warn("analyzeText pendiente — Task 6", t); }
+async function analyzeText(text) {
+  startAnalyzingCopy();
+  showScreen("analyzing");
+  const fullText = `Emoción seleccionada: ${state.selectedEmotion}. ${text}`;
+  try {
+    const res = await fetch(`${API}/api/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: fullText }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    data.emocion_seleccionada = state.selectedEmotion;
+    data.transcripcion = text;
+    onAnalysisReady(data);
+  } catch (err) {
+    stopAnalyzingCopy();
+    console.error(err);
+    showAnalyzingError("");
+  }
+}
 
 recordBtn.addEventListener("pointerdown", e => {
   // setPointerCapture: el botón conserva el pointerup aunque el dedo
@@ -362,6 +381,25 @@ const ANALYZING_MESSAGES = [
   "Casi listo…",
 ];
 
+function onAnalysisReady(data) {
+  state.rulerResult = data;
+  stopAnalyzingCopy();
+  if (data.crisis_flag) showCrisisModal();
+  const box = document.getElementById("transcription-box");
+  if (data.transcripcion) {
+    box.textContent = data.transcripcion;
+    box.classList.remove("hidden");
+  } else {
+    box.classList.add("hidden");
+  }
+  renderRulerDisplay(data);
+  // /api/entry y /api/analyze NO devuelven acompañamiento (data.acompanamiento es
+  // undefined aquí) → renderAcompanamiento lo oculta. El acompañamiento real llega
+  // al guardar, en el handler de Guardar.
+  renderAcompanamiento(data.acompanamiento);
+  showScreen("confirm");
+}
+
 async function analyzeEntry(blob) {
   state.audioBlob = blob;
   startAnalyzingCopy();
@@ -382,21 +420,7 @@ async function analyzeEntry(blob) {
       throw e;
     }
     const data = await res.json();
-    state.rulerResult = data;
-    stopAnalyzingCopy();
-
-    if (data.crisis_flag) showCrisisModal();
-
-    const box = document.getElementById("transcription-box");
-    if (data.transcripcion) {
-      box.textContent = data.transcripcion;
-      box.classList.remove("hidden");
-    } else {
-      box.classList.add("hidden");
-    }
-    renderRulerDisplay(data);
-    renderAcompanamiento(data.acompanamiento);
-    showScreen("confirm");
+    onAnalysisReady(data);
   } catch (err) {
     stopAnalyzingCopy();
     console.error(err);
@@ -515,8 +539,47 @@ async function loadHomeCompanion() {
 }
 
 // ─── CONFIRM ──────────────────────────────────────────────────────────────────
-// El registro ya quedó guardado por /api/entry — esta pantalla es informativa.
-document.getElementById("btn-confirm-done").addEventListener("click", () => {
+// El registro NO se guarda durante el análisis: aquí el usuario decide.
+const btnConfirmSave = document.getElementById("btn-confirm-save");
+const confirmActions = document.querySelector(".confirm-actions");
+const btnConfirmDone = document.getElementById("btn-confirm-done");
+
+btnConfirmSave.addEventListener("click", async () => {
+  if (!state.rulerResult) return;
+  btnConfirmSave.disabled = true;
+  btnConfirmSave.textContent = "Guardando…";
+  try {
+    const res = await fetch(`${API}/api/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state.rulerResult),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    // Mira reflexiona tras guardar: si el pipeline intervino, mostramos su mensaje
+    // y dejamos al usuario en Confirmar con un solo botón "Listo".
+    if (data.acompanamiento && data.acompanamiento.mensaje) {
+      renderAcompanamiento(data.acompanamiento);
+      confirmActions.classList.add("hidden");
+      btnConfirmDone.classList.remove("hidden");
+    } else {
+      resetRecordState();
+      showScreen("mood");
+    }
+  } catch (err) {
+    console.error(err);
+    btnConfirmSave.textContent = "Reintentar guardar";
+  } finally {
+    btnConfirmSave.disabled = false;
+  }
+});
+
+document.getElementById("btn-confirm-cancel").addEventListener("click", () => {
+  resetRecordState();
+  showScreen("mood");
+});
+
+btnConfirmDone.addEventListener("click", () => {
   resetRecordState();
   showScreen("mood");
 });
@@ -534,6 +597,12 @@ function resetRecordState() {
   document.getElementById("text-input").value = "";
   stopRecordTimer();
   btnCancelRecord.classList.add("hidden");
+  // Resetear UI de Confirmar para la siguiente vez.
+  btnConfirmSave.disabled = false;
+  btnConfirmSave.textContent = "Guardar";
+  confirmActions.classList.remove("hidden");
+  btnConfirmDone.classList.add("hidden");
+  renderAcompanamiento(null);
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────

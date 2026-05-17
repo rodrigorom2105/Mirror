@@ -740,6 +740,8 @@ body {
 
 #screen-confirm.active { justify-content: space-between; }
 
+.confirm-actions { display: flex; flex-direction: column; gap: 10px; }
+
 /* Barra de intensidad — degradado verde→amarillo→rojo en los segmentos activos */
 #ruler-display .bg-indigo-500 {
   background: linear-gradient(90deg, #557A58, #B0852A 55%, #C2553B) !important;
