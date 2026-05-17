@@ -10,6 +10,9 @@ build/
 # Env
 .env
 
+# Node (tooling de Tailwind)
+node_modules/
+
 # Data (no commitear la DB ni los modelos)
 data/chroma_db/
 data/audio/
