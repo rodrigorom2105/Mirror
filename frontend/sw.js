@@ -1,4 +1,4 @@
-const CACHE = "mirror-v7";
+const CACHE = "mirror-v8";
 const ASSETS = ["/", "/app.js", "/styles.css", "/tailwind.css", "/assets/mira.png"];
 
 // Precarga tolerante: un asset ausente no aborta la instalación del SW.
