@@ -369,7 +369,7 @@ Brackett, Yale, framework validado. Mood Meter, vocabulario emocional preciso. "
 1. Abrir PWA → tocar cuadrante azul → elegir "abrumado"
 2. Grabar 20 segundos (texto preparado, no improvisado)
 3. Mostrar estructura RULER extraída
-4. **Desconectar WiFi en vivo** → "todo esto, sin internet"
+4. **Activar modo avión en el celular → reactivar solo el WiFi local** → "sin internet, solo la red local con esta laptop — todo sigue funcionando"
 5. Mostrar timeline pre-cargado (3 semanas de datos sintéticos)
 6. Mostrar patrones detectados
 7. Pregunta al chat: "¿cómo me he sentido esta semana?" → leer respuesta
