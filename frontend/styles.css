@@ -111,14 +111,16 @@ body {
    así se componen sin pisarse y el movimiento nunca se siente mecánico.
    .mira       → entrada (una vez, al aparecer la pantalla)
    .mira-anim  → flotación vertical
-   .mira-tilt  → inclinación / balanceo
-   .mira-face  → respiración (escala) + ancla de los párpados
+   .mira-tilt  → balanceo suave (rotación)
+   .mira-face  → respiración (escala)
+   Las tres duraciones son no armónicas (5.3 / 7.1 / 4.7 s): su mínimo
+   común es enorme, así que el ciclo compuesto nunca se ve repetir.
    Todo se anima con transform/opacity → 60fps en GPU.                    */
 
 .mira {
   position: relative;
   flex-shrink: 0;
-  animation: miraEnter 0.72s var(--ease-spring) both;
+  animation: miraEnter 0.86s var(--ease-soft) both;
   will-change: transform;
 }
 .mira-sm      { width: 66px;  height: 66px; }
@@ -129,11 +131,12 @@ body {
   width: 100%;
   height: 100%;
 }
-.mira-anim { animation: miraFloat 3.6s ease-in-out infinite; will-change: transform; }
-.mira-tilt { animation: miraTilt 5.2s ease-in-out infinite; will-change: transform; }
+.mira-anim { animation: miraFloat 5.3s ease-in-out infinite; will-change: transform; }
+.mira-tilt { animation: miraTilt 7.1s ease-in-out infinite; will-change: transform; }
 .mira-face {
-  animation: miraFaceIdle 4.4s ease-in-out infinite;
+  animation: miraFaceIdle 4.7s ease-in-out infinite;
   will-change: transform;
+  transform-origin: 50% 78%;   /* respira anclada a la base, no al centro */
 }
 
 .mira-body {
@@ -154,37 +157,47 @@ body {
   box-shadow: 0 8px 30px rgba(91, 83, 201, 0.4);
 }
 
+/* Entrada cálida: aparece, se asienta con un respiro suave — sin "pop" duro. */
 @keyframes miraEnter {
-  0%   { opacity: 0; transform: scale(0.45) translateY(14px); }
-  55%  { opacity: 1; }
+  0%   { opacity: 0; transform: scale(0.72) translateY(12px); }
+  60%  { opacity: 1; transform: scale(1.035) translateY(-2px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
+/* Flotación: sube y baja con un asentamiento orgánico, asimétrico. */
 @keyframes miraFloat {
   0%   { transform: translateY(0); }
-  50%  { transform: translateY(-8px); }
-  72%  { transform: translateY(-1.5px); }   /* micro-rebote al asentarse */
-  86%  { transform: translateY(-3.5px); }
+  46%  { transform: translateY(-7px); }
+  70%  { transform: translateY(-2px); }     /* micro-asentamiento, no rebote */
   100% { transform: translateY(0); }
 }
+/* Balanceo: rotación lenta y desigual a cada lado para que no se sienta péndulo. */
 @keyframes miraTilt {
-  0%, 100% { transform: rotate(-2.6deg); }
-  50%      { transform: rotate(2.6deg); }
+  0%   { transform: rotate(-2.4deg); }
+  38%  { transform: rotate(1.6deg); }
+  64%  { transform: rotate(2.6deg); }
+  100% { transform: rotate(-2.4deg); }
 }
-/* Respiración + un "pestañeo" por squash: el squash rápido (44-48%) lee como
-   parpadeo sin necesitar los ojos en una capa aparte. Todo scale → GPU/60fps. */
+/* Respiración: solo una escala suave y calmada. Mira NO parpadea. */
 @keyframes miraFaceIdle {
-  0%   { transform: scale(1, 1); }
-  24%  { transform: scale(1.03, 1.04); }
-  44%  { transform: scale(1, 1); }
-  46%  { transform: scale(1.045, 0.88); }
-  48%  { transform: scale(1, 1); }
-  72%  { transform: scale(1.03, 1.04); }
-  100% { transform: scale(1, 1); }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.035); }
 }
 
-/* Mira "pensando" en la pantalla de análisis: flota un poco más animada */
-.mira-think .mira-anim { animation-duration: 2.5s; }
-.mira-think .mira-tilt { animation-duration: 3.6s; }
+/* Mira en la cabecera de la sub-matriz: acompaña y observa con calma. */
+.mira-words {
+  margin: 2px auto 8px;
+}
+/* Mira "escuchando" en la pantalla de grabación: atenta. Su respiración
+   se vuelve un poco más viva y el balanceo más despierto, sin distraer. */
+.mira-listen {
+  margin: 0 auto -4px;
+}
+.mira-listen .mira-tilt { animation-duration: 6.2s; }
+.mira-listen .mira-face { animation: miraListen 3.4s ease-in-out infinite; }
+@keyframes miraListen {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.05); }
+}
 
 /* ─── REGISTRAR · cabecera + mood meter ─────────────────────────────── */
 
@@ -1218,6 +1231,12 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  /* Mira queda completamente quieta, recta y a tamaño natural. */
+  .mira, .mira-anim, .mira-tilt, .mira-face {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
   }
 }
 
