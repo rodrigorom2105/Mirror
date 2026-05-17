@@ -55,11 +55,11 @@ async def save(ruler: dict, background: BackgroundTasks):
     entry_id, saved_at = save_entry(ruler)
     ruler["saved_at"] = saved_at
     _update_profile(ruler, background)
-    return {"id": entry_id, "saved_at": saved_at}
+    acompanamiento = _acompanamiento_post_entry()
+    return {"id": entry_id, "saved_at": saved_at, "acompanamiento": acompanamiento}
 
 @router.post("/entry")
 async def entry(
-    background: BackgroundTasks,
     audio: UploadFile = File(...),
     emocion_seleccionada: str = Form(...),
 ):
@@ -84,12 +84,7 @@ async def entry(
         ruler["crisis_flag"] = contains_crisis(full_text)
         if ruler["crisis_flag"]:
             _log.warning("crisis_flag activado en esta entrada")
-        entry_id, saved_at = save_entry(ruler)
-        ruler["saved_at"] = saved_at
-        _log.info("Entrada guardada — id=%s", entry_id)
-        _update_profile(ruler, background)
-        acompanamiento = _acompanamiento_post_entry()
-        return {**ruler, "id": entry_id, "acompanamiento": acompanamiento}
+        return ruler
     except AudioError as exc:
         _log.warning("Error de audio: %s", exc)
         # Errores esperados del audio pipeline (audio corto, sin voz, formato
