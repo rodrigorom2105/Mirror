@@ -740,25 +740,6 @@ body {
 .confirm-header .mira { margin: 0; }
 .confirm-header h2 { margin: 0; }
 
-.transcription-box {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px 16px;
-  font-size: 0.9rem;
-  color: var(--text-dim);
-  font-style: italic;
-  margin-bottom: 16px;
-}
-
-.ruler-display {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 22px;
-}
-
 .info-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -778,23 +759,12 @@ body {
 
 .confirm-actions { display: flex; flex-direction: column; gap: 10px; }
 
-/* Barra de intensidad — degradado verde→amarillo→rojo en los segmentos activos */
-#ruler-display .bg-indigo-500 {
-  background: linear-gradient(90deg, #557A58, #B0852A 55%, #C2553B) !important;
-}
-
 /* Entrada escalonada de las tarjetas (resumen RULER e historial) */
-.ruler-display .info-card,
 .scroll-list .entry-card { animation: cardIn 0.42s var(--ease-soft) both; }
-.ruler-display .info-card:nth-child(1),
 .scroll-list .entry-card:nth-child(1) { animation-delay: 0.04s; }
-.ruler-display .info-card:nth-child(2),
 .scroll-list .entry-card:nth-child(2) { animation-delay: 0.10s; }
-.ruler-display .info-card:nth-child(3),
 .scroll-list .entry-card:nth-child(3) { animation-delay: 0.16s; }
-.ruler-display .info-card:nth-child(4),
 .scroll-list .entry-card:nth-child(4) { animation-delay: 0.22s; }
-.ruler-display .info-card:nth-child(5),
 .scroll-list .entry-card:nth-child(5) { animation-delay: 0.28s; }
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(12px); }
@@ -1074,60 +1044,108 @@ body {
 }
 
 
-/* ─── Acompañamiento de Mira ────────────────────────────────────────── */
+/* ─── Tarjeta de feedback de Mira ───────────────────────────────────── */
 
-#companion-card { margin-bottom: 22px; }
-
-.companion-bubble {
+.feedback-card {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 15px 16px;
+  padding: 16px;
   border-radius: 18px;
   background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
   border: 1px solid var(--border);
+  margin-bottom: 12px;
   animation: cardIn 0.45s var(--ease-soft) both;
 }
-.companion-mira {
-  width: 42px;
-  height: 42px;
+.feedback-card.modo-apoyo {
+  border-color: color-mix(in srgb, var(--indigo) 32%, transparent);
+}
+.feedback-mira {
+  width: 46px; height: 46px;
   flex-shrink: 0;
   object-fit: contain;
   filter: drop-shadow(0 3px 9px rgba(125, 114, 214, 0.35));
 }
-.companion-mira.img-missing {
+.feedback-mira.img-missing {
   border-radius: 50%;
   font-size: 0;
   background: radial-gradient(circle at 38% 30%, #7D72D6, #5B53C9 60%, #3F3895);
 }
-.companion-bubble p {
+.feedback-card p {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   line-height: 1.55;
   color: var(--text);
 }
 
-/* Variante del inicio: descartable */
-.companion-home {
-  margin-top: 4px;
+.feedback-rating {
+  display: flex;
   align-items: center;
-  position: relative;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 0 4px;
 }
-.companion-home p { padding-right: 20px; }
-.companion-close {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 28px;
-  height: 28px;
+.feedback-rating-q { font-size: 0.82rem; color: var(--text-dim); }
+.feedback-rating-btns { display: flex; gap: 8px; }
+.rate-btn {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: transform 0.16s var(--ease-spring), background 0.18s ease, color 0.18s ease;
+}
+.rate-btn svg { width: 18px; height: 18px; }
+.rate-btn:active { transform: scale(0.92); }
+.rate-btn.active {
+  background: linear-gradient(135deg, var(--indigo-light), var(--indigo));
+  border-color: transparent;
+  color: #fff;
+}
+
+.confirm-text-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+#confirm-text {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text);
+  resize: none;
+  outline: none;
+  transition: border-color 0.18s ease;
+}
+#confirm-text:focus { border-color: var(--indigo); }
+#btn-reanalyze { margin-top: 10px; }
+
+.btn-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 8px 4px;
   border: none;
   background: none;
-  color: var(--text-dim);
-  font-size: 0.8rem;
+  color: var(--indigo);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 50%;
 }
-.companion-close:active { background: rgba(120, 100, 70, 0.10); }
+.btn-details svg { width: 16px; height: 16px; }
 
 .insight-line {
   font-size: 0.88rem;

@@ -13,6 +13,7 @@ let state = {
   audioBlob: null,
   pendingText: null,
   rulerResult: null,
+  feedbackReaction: null,
   inputMode: "voz",
 };
 
@@ -445,19 +446,34 @@ function onAnalysisReady(data) {
   state.rulerResult = data;
   stopAnalyzingCopy();
   if (data.crisis_flag) showCrisisModal();
-  const box = document.getElementById("transcription-box");
-  if (data.transcripcion) {
-    box.textContent = data.transcripcion;
-    box.classList.remove("hidden");
-  } else {
-    box.classList.add("hidden");
-  }
-  renderRulerDisplay(data);
-  // /api/entry y /api/analyze no devuelven acompañamiento → se pasa null
-  // explícitamente para que renderAcompanamiento lo oculte. El acompañamiento
-  // real llega al guardar, en el handler de Guardar.
-  renderAcompanamiento(null);
+  renderFeedbackCard(data.feedback);
+  setFeedbackReaction(null);
+  const ta = document.getElementById("confirm-text");
+  ta.value = data.transcripcion || "";
+  ta.dataset.original = ta.value;
+  document.getElementById("btn-reanalyze").classList.add("hidden");
   showScreen("confirm");
+}
+
+// Render seguro (textContent): el mensaje viene del LLM, nunca como HTML.
+function renderFeedbackCard(feedback) {
+  const el = document.getElementById("feedback-card");
+  el.innerHTML = "";
+  el.className = "feedback-card" + (feedback?.modo ? ` modo-${feedback.modo}` : "");
+  const img = document.createElement("img");
+  img.src = "/assets/mira.png";
+  img.alt = "";
+  img.className = "feedback-mira";
+  img.onerror = () => img.classList.add("img-missing");
+  const p = document.createElement("p");
+  p.textContent = feedback?.mensaje || "Gracias por registrar cómo te sientes.";
+  el.append(img, p);
+}
+
+function setFeedbackReaction(value) {
+  state.feedbackReaction = value;
+  document.getElementById("rate-yes").classList.toggle("active", value === "me_ayudo");
+  document.getElementById("rate-no").classList.toggle("active", value === "no_me_ayudo");
 }
 
 async function analyzeEntry(blob) {
@@ -538,110 +554,51 @@ document.getElementById("btn-analyzing-back").addEventListener("click", () => {
   showScreen("record");
 });
 
-// ─── RULER DISPLAY ────────────────────────────────────────────────────────────
-function renderRulerDisplay(ruler) {
-  const container = document.getElementById("ruler-display");
-  const colorMap = { rojo: "q-rojo", amarillo: "q-amarillo", azul: "q-azul", verde: "q-verde" };
-  container.innerHTML = `
-    <div class="info-card">
-      <p class="info-label">Emoción principal</p>
-      <p class="text-lg font-bold ${colorMap[ruler.cuadrante] || ''}">${ruler.emocion_primaria || ""}</p>
-      ${ruler.emociones_secundarias?.length ? `<p class="text-xs t-dim mt-1">${ruler.emociones_secundarias.join(", ")}</p>` : ""}
-    </div>
-    <div class="info-card">
-      <p class="info-label">Disparador</p>
-      <p class="text-sm t-strong">${ruler.disparador || "—"}</p>
-    </div>
-    <div class="info-card">
-      <p class="info-label">Intensidad</p>
-      <div class="flex gap-1 mt-1">
-        ${Array.from({length:10},(_,i)=>`<div class="h-2 flex-1 rounded-full ${i < (ruler.intensidad||0) ? "bg-indigo-500" : "track"}"></div>`).join("")}
-      </div>
-    </div>
-    <div class="info-card">
-      <p class="info-label">Resumen</p>
-      <p class="text-sm t-soft italic">${ruler.resumen || "—"}</p>
-    </div>
-    ${ruler.pensamientos?.length ? `<div class="info-card"><p class="info-label mb-2">Pensamientos</p>${ruler.pensamientos.map(t=>`<p class="text-sm t-soft">• ${t}</p>`).join("")}</div>` : ""}
-  `;
-}
-
-// ─── ACOMPAÑAMIENTO DE MIRA ───────────────────────────────────────────────────
-// Render seguro (textContent): el mensaje viene del LLM, nunca como HTML.
-function renderAcompanamiento(acomp) {
-  const el = document.getElementById("companion-card");
-  el.innerHTML = "";
-  if (!acomp || !acomp.mensaje) { el.classList.add("hidden"); return; }
-  const bubble = document.createElement("div");
-  bubble.className = "companion-bubble";
-  const img = document.createElement("img");
-  img.src = "/assets/mira.png";
-  img.alt = "";
-  img.className = "companion-mira";
-  img.onerror = () => img.classList.add("img-missing");
-  const p = document.createElement("p");
-  p.textContent = acomp.mensaje;
-  bubble.append(img, p);
-  el.append(bubble);
-  el.classList.remove("hidden");
-}
-
-// Mensaje contextual de Mira al abrir la app — solo si el pipeline interviene.
-async function loadHomeCompanion() {
-  const el = document.getElementById("home-companion");
-  if (!el) return;
-  try {
-    const res = await fetch(`${API}/api/companion`);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!data.intervenir || !data.mensaje) { el.classList.add("hidden"); return; }
-    el.innerHTML = "";
-    const bubble = document.createElement("div");
-    bubble.className = "companion-bubble companion-home";
-    const p = document.createElement("p");
-    p.textContent = data.mensaje;
-    const close = document.createElement("button");
-    close.className = "companion-close";
-    close.type = "button";
-    close.setAttribute("aria-label", "Descartar mensaje");
-    close.textContent = "✕";
-    close.addEventListener("click", () => el.classList.add("hidden"));
-    bubble.append(p, close);
-    el.append(bubble);
-    el.classList.remove("hidden");
-  } catch {
-    /* el acompañamiento es opcional — si falla, no se muestra nada */
-  }
-}
 
 // ─── CONFIRM ──────────────────────────────────────────────────────────────────
 // El registro NO se guarda durante el análisis: aquí el usuario decide.
 const btnConfirmSave = document.getElementById("btn-confirm-save");
-const confirmActions = document.querySelector(".confirm-actions");
-const btnConfirmDone = document.getElementById("btn-confirm-done");
+
+document.getElementById("rate-yes").addEventListener("click", () =>
+  setFeedbackReaction(state.feedbackReaction === "me_ayudo" ? null : "me_ayudo"));
+document.getElementById("rate-no").addEventListener("click", () =>
+  setFeedbackReaction(state.feedbackReaction === "no_me_ayudo" ? null : "no_me_ayudo"));
+
+// El campo editable: si se corrige el texto, aparece "Actualizar análisis".
+const confirmText = document.getElementById("confirm-text");
+confirmText.addEventListener("input", () => {
+  const changed = confirmText.value.trim() !== (confirmText.dataset.original || "").trim();
+  document.getElementById("btn-reanalyze").classList.toggle("hidden", !changed);
+});
+document.getElementById("btn-reanalyze").addEventListener("click", () => {
+  const txt = confirmText.value.trim();
+  if (txt.length >= 3) analyzeText(txt);
+});
+
+document.getElementById("btn-details").addEventListener("click", () => {
+  if (state.rulerResult) openDrawer("Detalles del registro", rulerDetailHTML(state.rulerResult));
+});
 
 btnConfirmSave.addEventListener("click", async () => {
   if (!state.rulerResult) return;
   btnConfirmSave.disabled = true;
   btnConfirmSave.textContent = "Guardando…";
   try {
+    // Guarda el texto visible en el campo editable (puede haberse corregido
+    // sin re-analizar); el resto del análisis es el que el usuario ya vio.
+    const payload = {
+      ...state.rulerResult,
+      transcripcion: confirmText.value.trim() || state.rulerResult.transcripcion,
+      reaccion_feedback: state.feedbackReaction,
+    };
     const res = await fetch(`${API}/api/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(state.rulerResult),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    // Mira reflexiona tras guardar: si el pipeline intervino, mostramos su mensaje
-    // y dejamos al usuario en Confirmar con un solo botón "Listo".
-    if (data.acompanamiento && data.acompanamiento.mensaje) {
-      renderAcompanamiento(data.acompanamiento);
-      confirmActions.classList.add("hidden");
-      btnConfirmDone.classList.remove("hidden");
-    } else {
-      resetRecordState();
-      showScreen("mood");
-    }
+    resetRecordState();
+    showScreen("mood");
   } catch (err) {
     console.error(err);
     btnConfirmSave.textContent = "Reintentar guardar";
@@ -655,33 +612,26 @@ document.getElementById("btn-confirm-cancel").addEventListener("click", () => {
   showScreen("mood");
 });
 
-btnConfirmDone.addEventListener("click", () => {
-  resetRecordState();
-  showScreen("mood");
-});
-
 function resetRecordState() {
   state.audioBlob = null;
   state.pendingText = null;
   state.rulerResult = null;
+  state.feedbackReaction = null;
   recState = "idle";
   recMode = null;
   stopWhenReady = false;
-  const box = document.getElementById("transcription-box");
-  box.classList.add("hidden");
-  box.textContent = "";
   recordBtn.classList.remove("recording", "toggle");
   recordStatus.textContent = "Toca o mantén presionado para hablar";
   setInputMode("voz");
   document.getElementById("text-input").value = "";
   stopRecordTimer();
   btnCancelRecord.classList.add("hidden");
-  // Resetear UI de Confirmar para la siguiente vez.
   btnConfirmSave.disabled = false;
   btnConfirmSave.textContent = "Guardar";
-  confirmActions.classList.remove("hidden");
-  btnConfirmDone.classList.add("hidden");
-  renderAcompanamiento(null);
+  const ta = document.getElementById("confirm-text");
+  ta.value = "";
+  ta.dataset.original = "";
+  document.getElementById("btn-reanalyze").classList.add("hidden");
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────

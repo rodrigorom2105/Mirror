@@ -162,15 +162,33 @@
         </div>
         <h2 data-screen-title>Esto es lo que entendí</h2>
       </div>
-      <div id="transcription-box" class="transcription-box hidden"></div>
-      <div id="ruler-display" class="ruler-display"></div>
-      <div id="companion-card" class="hidden"></div>
+
+      <div id="feedback-card" class="feedback-card"></div>
+
+      <div id="feedback-rating" class="feedback-rating">
+        <span class="feedback-rating-q">¿Te ayudó este mensaje?</span>
+        <div class="feedback-rating-btns">
+          <button id="rate-yes" class="rate-btn" type="button" aria-label="Sí, me ayudó">
+            <i data-lucide="thumbs-up" aria-hidden="true"></i>
+          </button>
+          <button id="rate-no" class="rate-btn" type="button" aria-label="No me ayudó">
+            <i data-lucide="thumbs-down" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+
+      <label for="confirm-text" class="confirm-text-label">Lo que entendí que dijiste</label>
+      <textarea id="confirm-text" rows="3"></textarea>
+      <button id="btn-reanalyze" class="btn-ghost hidden" type="button">Actualizar análisis</button>
+
+      <button id="btn-details" class="btn-details" type="button">
+        <i data-lucide="sliders-horizontal" aria-hidden="true"></i><span>Ver detalles</span>
+      </button>
     </div>
     <div class="confirm-actions">
       <button id="btn-confirm-save" class="btn-primary" type="button">Guardar</button>
       <button id="btn-confirm-cancel" class="btn-ghost" type="button">Cancelar</button>
     </div>
-    <button id="btn-confirm-done" class="btn-primary hidden" type="button">Listo</button>
   </div>
 
   <!-- ─── Historial ──────────────────────────────────────────────────────── -->
