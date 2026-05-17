@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-from routes import audio, emotion, history, chat
+from routes import audio, emotion, history, chat, companion
 
 class UTF8JSONResponse(JSONResponse):
     media_type = "application/json; charset=utf-8"
@@ -21,6 +21,14 @@ class UTF8JSONResponse(JSONResponse):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Inicializa la base SQLite (perfil consolidado + sesiones de chat).
+    try:
+        from services.db import init_db
+        init_db()
+        print("[startup] Base SQLite lista.", flush=True)
+    except Exception as exc:  # noqa: BLE001 - no debe tumbar el arranque
+        print(f"[startup] init_db omitido: {exc}", flush=True)
+
     # Calienta el motor STT al arrancar: la primera carga del modelo en CoreML
     # es lenta. Pagar ese costo aquí evita que la primera grabación real del
     # usuario se pase del STT_TIMEOUT.
@@ -62,6 +70,7 @@ app.include_router(audio.router, prefix="/api")
 app.include_router(emotion.router, prefix="/api")
 app.include_router(history.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+app.include_router(companion.router, prefix="/api")
 
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
 
