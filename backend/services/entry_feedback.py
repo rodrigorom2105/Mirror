@@ -84,7 +84,7 @@ _FALLBACK = ("Gracias por registrar cómo te sientes. "
 def _build_evidence(ruler: dict, modo: str, client_time) -> str:
     """Arma el bloque de evidencia estructurada para el prompt del feedback."""
     from services.memory_service import get_helpful_feedback_examples
-    from services.profile_service import get_wellbeing_sources
+    from services.profile_service import get_profile, get_wellbeing_sources
 
     franja, dia = franja_horaria(client_time)
     lines = [
@@ -98,6 +98,29 @@ def _build_evidence(ruler: dict, modo: str, client_time) -> str:
     if ruler.get("resumen"):
         lines.append(f"RESUMEN: {ruler['resumen']}")
     lines.append(f"MOMENTO: {franja}, {dia}")
+
+    # Contexto del perfil: tendencia reciente, disparadores y síntesis narrativa.
+    try:
+        perfil = get_profile()
+        tr = perfil.get("tendencia_reciente", {})
+        cuad_dom = tr.get("cuadrante_dominante")
+        if cuad_dom:
+            lines.append(f"TENDENCIA RECIENTE: cuadrante dominante {cuad_dom} "
+                         f"(valencia {tr.get('valencia', 0):.2f})")
+
+        disp_top = sorted(
+            perfil.get("disparadores_recurrentes", {}).items(),
+            key=lambda kv: kv[1], reverse=True
+        )[:3]
+        disp_str = "; ".join(k for k, _ in disp_top if k)
+        if disp_str:
+            lines.append(f"DISPARADORES RECURRENTES DEL USUARIO: {disp_str}")
+
+        sintesis = (perfil.get("sintesis_narrativa") or "").strip()
+        if sintesis:
+            lines.append(f"PERFIL NARRATIVO: {sintesis}")
+    except Exception:  # noqa: BLE001
+        pass
 
     try:
         fuentes = get_wellbeing_sources(5)
