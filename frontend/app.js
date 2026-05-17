@@ -138,6 +138,7 @@ let audioStream = null;
 let audioCtx = null;
 let recordStartTime = 0;
 let recordTimerInterval = null;
+let waveStroke = "#7D72D6";   // color del trazo de la onda; se refresca al grabar
 // Máquina de estados: idle | arming (pidiendo micrófono) | recording | stopping
 let recState = "idle";
 let recMode = null;          // "hold" | "toggle" — cómo terminará la grabación
@@ -411,6 +412,8 @@ function resizeWaveCanvas() {
   waveCanvas.width = Math.round(rect.width * dpr);
   waveCanvas.height = Math.round(rect.height * dpr);
   waveCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  waveStroke = getComputedStyle(document.documentElement)
+    .getPropertyValue("--indigo-light").trim() || "#7D72D6";
 }
 
 function drawWaveform() {
@@ -421,7 +424,7 @@ function drawWaveform() {
   const w = waveCanvas.clientWidth;
   const h = waveCanvas.clientHeight;
   waveCtx.clearRect(0, 0, w, h);
-  waveCtx.strokeStyle = "#7D72D6";
+  waveCtx.strokeStyle = waveStroke;
   waveCtx.lineWidth = 2.5;
   waveCtx.lineJoin = "round";
   waveCtx.beginPath();
@@ -507,11 +510,24 @@ async function analyzeEntry(blob) {
   }
 }
 
+// Paleta de cuadrantes leída del CSS — se adapta sola a claro/oscuro.
+function quadrantColors() {
+  const cs = getComputedStyle(document.documentElement);
+  return {
+    rojo: cs.getPropertyValue("--red").trim(),
+    amarillo: cs.getPropertyValue("--yellow").trim(),
+    azul: cs.getPropertyValue("--blue").trim(),
+    verde: cs.getPropertyValue("--green").trim(),
+  };
+}
+
 // Tiñe el aura de carga con el color del cuadrante elegido.
 function setOrbColor(quadrant) {
-  const colors = { rojo: "#C2553B", amarillo: "#B0852A", azul: "#4E6E88", verde: "#557A58" };
+  const colors = quadrantColors();
+  const fallback = getComputedStyle(document.documentElement)
+    .getPropertyValue("--indigo-light").trim() || "#7D72D6";
   document.getElementById("screen-analyzing")
-    .style.setProperty("--orb-color", colors[quadrant] || "#7D72D6");
+    .style.setProperty("--orb-color", colors[quadrant] || fallback);
 }
 
 function startAnalyzingCopy() {
@@ -693,7 +709,7 @@ async function loadPatterns() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    const moodColors = { rojo: "#C2553B", amarillo: "#B0852A", azul: "#4E6E88", verde: "#557A58" };
+    const moodColors = quadrantColors();
     const moodEntries = Object.entries(data.mini_mood_meter || {});
     const total = moodEntries.reduce((s, [,v]) => s + v, 0);
 

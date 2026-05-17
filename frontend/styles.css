@@ -13,6 +13,7 @@
   --bg: #F7F1E6;
   --surface: #FCF8F0;
   --surface-2: #F1E9D8;
+  --quad-hi: #FFFFFF;
   --border: rgba(120, 100, 70, 0.16);
   --text: #4A4338;
   --text-dim: #6E665C;
@@ -322,28 +323,28 @@ body {
 }
 
 .quadrant-red {
-  background: linear-gradient(160deg, #FFFFFF 0%, var(--red-soft) 100%);
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--red-soft) 100%);
   border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
   box-shadow: 0 10px 26px rgba(120, 100, 70, 0.10);
 }
 .quadrant-red .q-title { color: var(--red); }
 
 .quadrant-yellow {
-  background: linear-gradient(160deg, #FFFFFF 0%, var(--yellow-soft) 100%);
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--yellow-soft) 100%);
   border: 1px solid color-mix(in srgb, var(--yellow) 35%, transparent);
   box-shadow: 0 10px 26px rgba(120, 100, 70, 0.10);
 }
 .quadrant-yellow .q-title { color: var(--yellow); }
 
 .quadrant-blue {
-  background: linear-gradient(160deg, #FFFFFF 0%, var(--blue-soft) 100%);
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--blue-soft) 100%);
   border: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);
   box-shadow: 0 10px 26px rgba(120, 100, 70, 0.10);
 }
 .quadrant-blue .q-title { color: var(--blue); }
 
 .quadrant-green {
-  background: linear-gradient(160deg, #FFFFFF 0%, var(--green-soft) 100%);
+  background: linear-gradient(160deg, var(--quad-hi) 0%, var(--green-soft) 100%);
   border: 1px solid color-mix(in srgb, var(--green) 35%, transparent);
   box-shadow: 0 10px 26px rgba(120, 100, 70, 0.10);
 }
@@ -1281,3 +1282,41 @@ body {
 }
 #drawer-content { display: flex; flex-direction: column; gap: 12px; }
 .app-error .btn-primary { max-width: 240px; }
+
+/* ─── Modo noche (sigue la preferencia del sistema) ─────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --red: #E08A6E;        --red-soft: #3A2A24;
+    --yellow: #D9B25C;     --yellow-soft: #3A3324;
+    --blue: #8FAAC4;       --blue-soft: #26303A;
+    --green: #8FB592;      --green-soft: #26332A;
+    --indigo: #8C84E6;
+    --indigo-light: #A49CEC;
+    --bg: #1A1714;
+    --surface: #23201B;
+    --surface-2: #2E2A23;
+    --border: rgba(220, 200, 170, 0.12);
+    --text: #EDE6D8;
+    --text-dim: #A89E8E;
+    --quad-hi: #2E2A23;
+  }
+  body {
+    background-image:
+      radial-gradient(circle at 50% -15%, rgba(140, 132, 230, 0.12) 0%, transparent 60%),
+      radial-gradient(circle at 100% 110%, rgba(224, 138, 110, 0.08) 0%, transparent 45%);
+  }
+  /* La superposición glossy de los cuadrantes sería un brillo raro en oscuro */
+  .quadrant::before { opacity: 0.06; }
+  .t-soft { color: #C3BBA9; }
+  .submatrix-stage.q-amarillo { --q-ink: var(--yellow); }
+  #screen-mood h1 {
+    background-image: linear-gradient(135deg, var(--indigo-light) 0%, var(--indigo) 60%, var(--red) 120%);
+  }
+  .error-state { color: var(--red); }
+  .track { background: rgba(200, 180, 150, 0.10); }
+  #tab-bar { background: rgba(35, 32, 27, 0.88); }
+  .skel-line {
+    background: linear-gradient(90deg, var(--surface-2) 25%, #3A352B 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+  }
+}
