@@ -88,15 +88,18 @@
       <span id="selected-emotion-badge" class="emotion-badge"></span>
 
       <div class="mode-switch" role="tablist" aria-label="Forma de registrar">
-        <button id="mode-voz" class="mode-btn active" type="button" role="tab" aria-selected="true">
+        <button id="mode-voz" class="mode-btn active" type="button" role="tab"
+          aria-selected="true" aria-controls="pane-voz">
           <i data-lucide="mic" aria-hidden="true"></i><span>Hablar</span>
         </button>
-        <button id="mode-texto" class="mode-btn" type="button" role="tab" aria-selected="false">
+        <button id="mode-texto" class="mode-btn" type="button" role="tab"
+          aria-selected="false" aria-controls="pane-texto">
           <i data-lucide="pencil" aria-hidden="true"></i><span>Escribir</span>
         </button>
       </div>
 
-      <div id="pane-voz" class="record-pane">
+      <div id="pane-voz" class="record-pane" role="tabpanel"
+        aria-labelledby="mode-voz" tabindex="0">
         <canvas id="waveform" aria-hidden="true"></canvas>
         <p id="record-timer" class="record-timer hidden">0:00</p>
         <button id="record-btn" class="record-btn" type="button"
@@ -109,7 +112,8 @@
         </button>
       </div>
 
-      <div id="pane-texto" class="record-pane hidden">
+      <div id="pane-texto" class="record-pane hidden" role="tabpanel"
+        aria-labelledby="mode-texto" tabindex="0">
         <label for="text-input" class="sr-only">Escribe cómo te sientes</label>
         <textarea id="text-input" rows="5"
           placeholder="Escribe lo que sientes y por qué…"></textarea>

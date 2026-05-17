@@ -602,6 +602,7 @@ body {
   font-weight: 600; padding: 8px 18px; border-radius: 999px; cursor: pointer;
   transition: transform 0.18s var(--ease-spring), background 0.18s ease; }
 .btn-cancel svg { width: 15px; height: 15px; }
+@media (hover: hover) { .btn-cancel:hover { background: var(--surface-2); color: var(--text); } }
 .btn-cancel:active { transform: scale(0.96); background: var(--surface-2); }
 
 /* ─── Textarea modo texto ───────────────────────────────────────────── */
