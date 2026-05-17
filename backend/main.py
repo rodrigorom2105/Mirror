@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-from routes import audio, emotion, history, chat, companion
+from routes import audio, emotion, history, chat
 
 class UTF8JSONResponse(JSONResponse):
     media_type = "application/json; charset=utf-8"
@@ -70,7 +70,6 @@ app.include_router(audio.router, prefix="/api")
 app.include_router(emotion.router, prefix="/api")
 app.include_router(history.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
-app.include_router(companion.router, prefix="/api")
 
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
 

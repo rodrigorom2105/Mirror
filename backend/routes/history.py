@@ -25,7 +25,7 @@ async def patterns():
     ]
     try:
         from services.profile_service import get_profile
-        from services.reasoning_pipeline import classify_state
+        from services.signals_engine import classify_state
         base["racha_registro"] = get_profile().get("registro", {}).get("racha_dias", 0)
         base["estado_actual"] = classify_state(signals) if signals else "sin_datos"
     except Exception:  # noqa: BLE001

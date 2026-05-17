@@ -2,7 +2,7 @@
 
 Sin LLM: pura estadística sobre las entradas RULER ya estructuradas. Corre en
 milisegundos. Cada detector devuelve una `Signal` (con `score` de relevancia y
-`urgencia`) o `None`. Es el paso "entender contexto" del pipeline de razonamiento.
+`urgencia`) o `None`. `classify_state` deriva el estado global de las señales.
 
 Las entradas llegan ordenadas por fecha DESCENDENTE (la más reciente primero),
 tal como las devuelve `memory_service.get_history`.
@@ -251,3 +251,21 @@ def compute_signals(entries: list) -> list:
             continue
     signals.sort(key=lambda s: s.score, reverse=True)
     return signals
+
+
+def classify_state(signals: list) -> str:
+    """Clasifica el estado emocional a partir de las señales detectadas.
+
+    Devuelve: en_dificultad | volatil | en_mejora | desconectado | estable.
+    """
+    tipos = {s.tipo for s in signals}
+    if "emocion_negativa_intensa" in tipos or "racha_negativa" in tipos:
+        return "en_dificultad"
+    if "intensidad_anomala" in tipos:
+        return "volatil"
+    if "tendencia_valencia" in tipos:
+        t = next(s for s in signals if s.tipo == "tendencia_valencia")
+        return "en_mejora" if t.evidencia.get("delta", 0) > 0 else "en_dificultad"
+    if "ausencia_registro" in tipos:
+        return "desconectado"
+    return "estable"
