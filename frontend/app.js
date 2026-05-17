@@ -444,8 +444,8 @@ function startAnalyzingCopy() {
     i = (i + 1) % ANALYZING_MESSAGES.length;
     el.style.animation = "none";
     void el.offsetWidth; // fuerza reflow para reiniciar la animación
-    el.style.animation = "";
     el.textContent = ANALYZING_MESSAGES[i];
+    el.style.animation = "";
   }, 2200);
 }
 
@@ -617,15 +617,18 @@ function resetRecordState() {
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
 async function loadHistory() {
   const container = document.getElementById("history-list");
+  container.setAttribute("aria-busy", "true");
   container.innerHTML = skeletonCards(4);
   try {
     const res = await fetch(`${API}/api/history?limit=30`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (!data.entries?.length) {
+      container.removeAttribute("aria-busy");
       container.innerHTML = `<p class="empty-state">Aún no hay registros.<br/>Tu primer momento aparecerá aquí.</p>`;
       return;
     }
+    container.removeAttribute("aria-busy");
     container.innerHTML = data.entries.map(e => `
       <div class="entry-card ${e.cuadrante || 'azul'}">
         <div class="flex justify-between items-start">
@@ -640,6 +643,7 @@ async function loadHistory() {
       </div>
     `).join("");
   } catch (err) {
+    container.removeAttribute("aria-busy");
     container.innerHTML = `<p class="error-state">No se pudo cargar el historial.</p>`;
   }
 }
@@ -653,6 +657,7 @@ function formatDate(iso) {
 // ─── PATTERNS ─────────────────────────────────────────────────────────────────
 async function loadPatterns() {
   const container = document.getElementById("patterns-container");
+  container.setAttribute("aria-busy", "true");
   container.innerHTML = skeletonCards(3);
   try {
     const res = await fetch(`${API}/api/patterns`);
@@ -663,6 +668,7 @@ async function loadPatterns() {
     const moodEntries = Object.entries(data.mini_mood_meter || {});
     const total = moodEntries.reduce((s, [,v]) => s + v, 0);
 
+    container.removeAttribute("aria-busy");
     container.innerHTML = `
       <div class="info-card">
         <h3 class="text-sm font-semibold t-strong mb-3">Distribución emocional</h3>
@@ -696,6 +702,7 @@ async function loadPatterns() {
       </div>
     `;
   } catch (err) {
+    container.removeAttribute("aria-busy");
     container.innerHTML = `<p class="error-state">No se pudieron cargar los patrones.</p>`;
   }
 }

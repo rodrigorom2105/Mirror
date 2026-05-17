@@ -1030,15 +1030,6 @@ body {
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* ─── Spinner ───────────────────────────────────────────────────────── */
-
-.spinner {
-  width: 24px; height: 24px;
-  border: 2.5px solid rgba(120, 100, 70, 0.15);
-  border-top-color: var(--indigo-light);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ─── Acompañamiento de Mira ────────────────────────────────────────── */
@@ -1179,8 +1170,6 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  /* El spinner sí gira: su movimiento comunica "cargando" */
-  .spinner { animation: spin 0.8s linear infinite !important; }
   /* El anillo del orbe también puede girar (comunica "procesando") */
   .mascota-orb::after { animation: spin 1.6s linear infinite !important; }
 }
