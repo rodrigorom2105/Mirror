@@ -19,8 +19,8 @@ async def analyze(req: AnalyzeRequest):
 
 @router.post("/save")
 async def save(ruler: dict):
-    entry_id = save_entry(ruler)
-    return {"id": entry_id, "saved": True}
+    entry_id, saved_at = save_entry(ruler)
+    return {"id": entry_id, "saved_at": saved_at}
 
 @router.post("/entry")
 async def entry(
@@ -42,7 +42,7 @@ async def entry(
         ruler["emocion_seleccionada"] = emocion_seleccionada
         ruler["transcripcion"] = transcription["text"]
         ruler["crisis_flag"] = contains_crisis(full_text)
-        entry_id = save_entry(ruler)
+        entry_id, _ = save_entry(ruler)
         return {**ruler, "id": entry_id}
     finally:
         os.unlink(tmp_path)

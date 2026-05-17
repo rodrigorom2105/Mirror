@@ -1,7 +1,7 @@
 import httpx, os
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
+EMBED_MODEL = os.getenv("EMBED_MODEL", "qwen3-embedding:0.6b")
 
 def embed(text: str) -> list[float]:
     resp = httpx.post(
