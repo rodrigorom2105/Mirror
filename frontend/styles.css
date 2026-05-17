@@ -377,7 +377,7 @@ body {
   transition: color 0.18s ease, transform 0.18s var(--ease-spring);
 }
 .back-btn:active { color: var(--text); transform: scale(0.96); }
-.back-btn svg { width: 18px; height: 18px; }
+.back-btn svg { width: 18px; height: 18px; stroke-width: 1.75; }
 
 .btn-primary {
   width: 100%;
