@@ -522,37 +522,53 @@ function quadrantColors() {
   };
 }
 
-// Tiñe el aura de carga con el color del cuadrante elegido.
+// Tiñe el orbe de carga (aura, núcleo y motas) con el color del cuadrante
+// elegido. Sin cuadrante cae al índigo de Mira — el tono neutro de reposo.
 function setOrbColor(quadrant) {
   const colors = quadrantColors();
-  const fallback = getComputedStyle(document.documentElement)
-    .getPropertyValue("--indigo-light").trim() || "#7D72D6";
+  const fallback =
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--indigo-light").trim() || "#7D72D6";
   document.getElementById("screen-analyzing")
     .style.setProperty("--orb-color", colors[quadrant] || fallback);
 }
+
+// Rotación de los mensajes de carga. En vez de reiniciar la animación con un
+// reflow forzado, hacemos un cross-fade limpio: marcamos el texto como
+// "saliendo" (.is-leaving → opacity 0), y cuando termina la transición
+// cambiamos el texto y lo dejamos volver a entrar. Sin layout thrashing.
+let analyzingSwapTimer = null;
 
 function startAnalyzingCopy() {
   document.getElementById("analyzing-main").classList.remove("hidden");
   document.getElementById("analyzing-error").classList.add("hidden");
   const el = document.getElementById("analyzing-status");
   let i = 0;
-  el.textContent = ANALYZING_MESSAGES[0];
+  clearTimeout(analyzingSwapTimer);
   clearInterval(analyzingTimer);
+  el.classList.remove("is-leaving");
+  el.textContent = ANALYZING_MESSAGES[0];
   analyzingTimer = setInterval(() => {
     i = (i + 1) % ANALYZING_MESSAGES.length;
-    el.style.animation = "none";
-    void el.offsetWidth; // fuerza reflow para reiniciar la animación
-    el.textContent = ANALYZING_MESSAGES[i];
-    el.style.animation = "";
-  }, 2200);
+    const next = ANALYZING_MESSAGES[i];
+    el.classList.add("is-leaving"); // se desvanece (transición CSS)
+    analyzingSwapTimer = setTimeout(() => {
+      el.textContent = next;
+      el.classList.remove("is-leaving"); // vuelve a entrar
+    }, 320); // == duración de la transición .analyzing-status
+  }, 2600);
 }
 
 function stopAnalyzingCopy() {
   clearInterval(analyzingTimer);
+  clearTimeout(analyzingSwapTimer);
   analyzingTimer = null;
+  analyzingSwapTimer = null;
+  document.getElementById("analyzing-status").classList.remove("is-leaving");
 }
 
 function showAnalyzingError(message) {
+  stopAnalyzingCopy(); // detiene la rotación por si quedara viva
   document.getElementById("analyzing-main").classList.add("hidden");
   document.getElementById("analyzing-error").classList.remove("hidden");
   document.getElementById("analyzing-error-msg").textContent =
