@@ -26,16 +26,15 @@ function showScreen(name) {
     b.classList.toggle("active", b.dataset.screen === name);
   });
   state.currentScreen = name;
+  // Mueve el foco al título de la pantalla para lectores de pantalla.
+  const heading = document.querySelector(`#screen-${name} [data-screen-title]`);
+  if (heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
   if (name === "history") loadHistory();
   if (name === "patterns") loadPatterns();
 }
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const target = btn.dataset.screen;
-    if (target === "mood") { showScreen("mood"); return; }
-    showScreen(target);
-  });
+  btn.addEventListener("click", () => showScreen(btn.dataset.screen));
 });
 
 // ─── MOOD METER ───────────────────────────────────────────────────────────────
@@ -54,13 +53,14 @@ function showWordScreen(quadrant) {
   data.words.forEach(word => {
     const chip = document.createElement("button");
     chip.className = "emotion-chip";
+    chip.type = "button";
     chip.textContent = word;
     chip.addEventListener("click", () => {
       document.querySelectorAll(".emotion-chip").forEach(c => c.classList.remove("selected"));
       chip.classList.add("selected");
       state.selectedEmotion = word;
-      setTimeout(() => showScreen("record"), 300);
       document.getElementById("selected-emotion-badge").textContent = word;
+      setTimeout(() => showScreen("record"), 280);
     });
     grid.appendChild(chip);
   });
@@ -75,46 +75,150 @@ let mediaRecorder = null;
 let audioChunks = [];
 let animFrame = null;
 let analyser = null;
+let audioStream = null;
+let audioCtx = null;
+let recordStartTime = 0;
+let pointerIsDown = false;
+let toggleMode = false;
+
+const TAP_THRESHOLD_MS = 350;  // por debajo: fue un toque → modo manos libres
+const MIN_RECORDING_MS = 500;  // ignora toques accidentales demasiado cortos
 
 const recordBtn = document.getElementById("record-btn");
 const recordStatus = document.getElementById("record-status");
 const waveCanvas = document.getElementById("waveform");
 const waveCtx = waveCanvas.getContext("2d");
 
-recordBtn.addEventListener("pointerdown", startRecording);
-recordBtn.addEventListener("pointerup", stopRecording);
-recordBtn.addEventListener("pointerleave", stopRecording);
+recordBtn.addEventListener("pointerdown", e => {
+  // setPointerCapture: el botón conserva el pointerup aunque el dedo
+  // se deslice fuera — el gesto "mantener" deja de cortarse solo.
+  try { recordBtn.setPointerCapture(e.pointerId); } catch {}
+  pointerIsDown = true;
+  // Ya graba en modo manos libres → este toque la finaliza.
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    finishRecording();
+    return;
+  }
+  toggleMode = false;
+  startRecording();
+});
+
+recordBtn.addEventListener("pointerup", () => {
+  pointerIsDown = false;
+  if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+  const elapsed = Date.now() - recordStartTime;
+  if (elapsed < TAP_THRESHOLD_MS) {
+    // Toque corto → modo manos libres: sigue grabando hasta el próximo toque.
+    toggleMode = true;
+    recordBtn.classList.add("toggle");
+    recordStatus.textContent = "Grabando… toca para terminar";
+  } else {
+    // Se mantuvo presionado → termina al soltar.
+    finishRecording();
+  }
+});
+
+recordBtn.addEventListener("pointercancel", () => {
+  pointerIsDown = false;
+  if (!toggleMode) finishRecording();
+});
+
+// Soporte de teclado: Enter/Espacio alterna la grabación (modo manos libres).
+recordBtn.addEventListener("click", e => {
+  if (e.detail !== 0) return; // ignora el click sintético que sigue al pointer
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    finishRecording();
+  } else {
+    toggleMode = true;
+    startRecording();
+  }
+});
 
 async function startRecording() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const ctx = new AudioContext();
-  const source = ctx.createMediaStreamSource(stream);
-  analyser = ctx.createAnalyser();
+  if (mediaRecorder && mediaRecorder.state === "recording") return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    recordStatus.textContent = "La grabación necesita HTTPS o localhost.";
+    return;
+  }
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    recordStatus.textContent = "No se pudo acceder al micrófono. Revisa los permisos.";
+    console.error(err);
+    return;
+  }
+
+  // El usuario soltó el botón mientras se pedía el permiso: no grabar.
+  if (!pointerIsDown && !toggleMode) {
+    stream.getTracks().forEach(t => t.stop());
+    return;
+  }
+
+  audioStream = stream;
+  audioCtx = new AudioContext();
+  const source = audioCtx.createMediaStreamSource(audioStream);
+  analyser = audioCtx.createAnalyser();
   analyser.fftSize = 256;
   source.connect(analyser);
 
   audioChunks = [];
-  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder = new MediaRecorder(audioStream);
   mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
   mediaRecorder.start();
+  recordStartTime = Date.now();
 
   recordBtn.classList.add("recording");
-  recordStatus.textContent = "Grabando...";
+  recordStatus.textContent = "Grabando…";
+  resizeWaveCanvas();
   drawWaveform();
 }
 
-function stopRecording() {
+function finishRecording() {
   if (!mediaRecorder || mediaRecorder.state === "inactive") return;
-  mediaRecorder.stop();
+  const elapsed = Date.now() - recordStartTime;
+  toggleMode = false;
+  recordBtn.classList.remove("toggle");
+
   mediaRecorder.onstop = () => {
-    state.audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-    recordStatus.textContent = "Audio listo ✓";
-    document.getElementById("transcription-box").classList.remove("hidden");
-    document.getElementById("transcription-box").textContent = "Transcribiendo...";
-    document.getElementById("btn-analyze").classList.remove("hidden");
+    releaseAudioResources();
+    if (elapsed < MIN_RECORDING_MS) {
+      recordStatus.textContent = "Mantén presionado o toca para grabar un poco más.";
+      return;
+    }
+    const blob = new Blob(audioChunks, { type: "audio/webm" });
+    analyzeEntry(blob); // transcribe + analiza automáticamente
   };
+
+  mediaRecorder.stop();
   recordBtn.classList.remove("recording");
   cancelAnimationFrame(animFrame);
+}
+
+// Libera el micrófono y el AudioContext — sin esto el indicador de micrófono
+// queda encendido y el navegador deja de crear AudioContext tras varias grabaciones.
+function releaseAudioResources() {
+  if (audioStream) {
+    audioStream.getTracks().forEach(t => t.stop());
+    audioStream = null;
+  }
+  if (audioCtx && audioCtx.state !== "closed") {
+    audioCtx.close();
+    audioCtx = null;
+  }
+  analyser = null;
+  mediaRecorder = null;
+}
+
+function resizeWaveCanvas() {
+  // El buffer del canvas debe igualar su tamaño real en píxeles;
+  // si no, el navegador estira los 300x150 por defecto y se ve borroso.
+  const dpr = window.devicePixelRatio || 1;
+  const rect = waveCanvas.getBoundingClientRect();
+  waveCanvas.width = Math.round(rect.width * dpr);
+  waveCanvas.height = Math.round(rect.height * dpr);
+  waveCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 function drawWaveform() {
@@ -122,44 +226,103 @@ function drawWaveform() {
   if (!analyser) return;
   const data = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteTimeDomainData(data);
-  waveCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
-  waveCtx.strokeStyle = "#6366f1";
-  waveCtx.lineWidth = 2;
+  const w = waveCanvas.clientWidth;
+  const h = waveCanvas.clientHeight;
+  waveCtx.clearRect(0, 0, w, h);
+  waveCtx.strokeStyle = "#818cf8";
+  waveCtx.lineWidth = 2.5;
+  waveCtx.lineJoin = "round";
   waveCtx.beginPath();
   data.forEach((v, i) => {
-    const x = (i / data.length) * waveCanvas.width;
-    const y = (v / 128) * (waveCanvas.height / 2);
+    const x = (i / data.length) * w;
+    const y = (v / 128) * (h / 2);
     i === 0 ? waveCtx.moveTo(x, y) : waveCtx.lineTo(x, y);
   });
   waveCtx.stroke();
 }
 
-// ─── TRANSCRIBE + ANALYZE ─────────────────────────────────────────────────────
-document.getElementById("btn-analyze").addEventListener("click", async () => {
-  if (!state.audioBlob) return;
-  recordStatus.textContent = "Procesando...";
-  document.getElementById("btn-analyze").disabled = true;
+// ─── ANALYZING (mascota: transcribe + analiza) ────────────────────────────────
+let analyzingTimer = null;
+const ANALYZING_MESSAGES = [
+  "Escuchando lo que compartiste…",
+  "Reconociendo tu emoción…",
+  "Buscando el patrón…",
+  "Casi listo…",
+];
+
+async function analyzeEntry(blob) {
+  state.audioBlob = blob;
+  startAnalyzingCopy();
+  showScreen("analyzing");
 
   const form = new FormData();
-  form.append("audio", state.audioBlob, "recording.webm");
+  form.append("audio", blob, "recording.webm");
   form.append("emocion_seleccionada", state.selectedEmotion);
 
   try {
     const res = await fetch(`${API}/api/entry`, { method: "POST", body: form });
+    if (!res.ok) {
+      // El backend mapea los errores de audio (corto, sin voz, formato inválido)
+      // a un HTTPException con `detail` — mostramos ese mensaje específico.
+      const errData = await res.json().catch(() => ({}));
+      const e = new Error(errData.detail || "No se pudo procesar el audio.");
+      e.userFacing = true;
+      throw e;
+    }
     const data = await res.json();
     state.rulerResult = data;
+    stopAnalyzingCopy();
 
     if (data.crisis_flag) showCrisisModal();
 
-    document.getElementById("transcription-box").textContent = data.transcripcion || "";
+    const box = document.getElementById("transcription-box");
+    if (data.transcripcion) {
+      box.textContent = data.transcripcion;
+      box.classList.remove("hidden");
+    } else {
+      box.classList.add("hidden");
+    }
     renderRulerDisplay(data);
     showScreen("confirm");
   } catch (err) {
-    recordStatus.textContent = "Error al procesar. Intenta de nuevo.";
+    stopAnalyzingCopy();
     console.error(err);
-  } finally {
-    document.getElementById("btn-analyze").disabled = false;
+    // Si el error trae un mensaje del backend lo mostramos; si es de red, genérico.
+    showAnalyzingError(err.userFacing ? err.message : "");
   }
+}
+
+function startAnalyzingCopy() {
+  document.getElementById("analyzing-main").classList.remove("hidden");
+  document.getElementById("analyzing-error").classList.add("hidden");
+  const el = document.getElementById("analyzing-status");
+  let i = 0;
+  el.textContent = ANALYZING_MESSAGES[0];
+  clearInterval(analyzingTimer);
+  analyzingTimer = setInterval(() => {
+    i = (i + 1) % ANALYZING_MESSAGES.length;
+    el.textContent = ANALYZING_MESSAGES[i];
+  }, 2200);
+}
+
+function stopAnalyzingCopy() {
+  clearInterval(analyzingTimer);
+  analyzingTimer = null;
+}
+
+function showAnalyzingError(message) {
+  document.getElementById("analyzing-main").classList.add("hidden");
+  document.getElementById("analyzing-error").classList.remove("hidden");
+  document.getElementById("analyzing-error-msg").textContent =
+    message || "Revisa tu conexión e inténtalo otra vez.";
+}
+
+document.getElementById("btn-analyzing-retry").addEventListener("click", () => {
+  if (state.audioBlob) analyzeEntry(state.audioBlob);
+});
+document.getElementById("btn-analyzing-back").addEventListener("click", () => {
+  resetRecordState();
+  showScreen("record");
 });
 
 // ─── RULER DISPLAY ────────────────────────────────────────────────────────────
@@ -167,38 +330,32 @@ function renderRulerDisplay(ruler) {
   const container = document.getElementById("ruler-display");
   const colorMap = { rojo: "text-red-300", amarillo: "text-yellow-300", azul: "text-blue-300", verde: "text-green-300" };
   container.innerHTML = `
-    <div class="bg-white/5 rounded-xl p-4">
-      <p class="text-xs text-slate-400 mb-1">Emoción principal</p>
+    <div class="info-card">
+      <p class="info-label">Emoción principal</p>
       <p class="text-lg font-bold ${colorMap[ruler.cuadrante] || ''}">${ruler.emocion_primaria || ""}</p>
       ${ruler.emociones_secundarias?.length ? `<p class="text-xs text-slate-400 mt-1">${ruler.emociones_secundarias.join(", ")}</p>` : ""}
     </div>
-    <div class="bg-white/5 rounded-xl p-4">
-      <p class="text-xs text-slate-400 mb-1">Disparador</p>
+    <div class="info-card">
+      <p class="info-label">Disparador</p>
       <p class="text-sm text-white">${ruler.disparador || "—"}</p>
     </div>
-    <div class="bg-white/5 rounded-xl p-4">
-      <p class="text-xs text-slate-400 mb-1">Intensidad</p>
+    <div class="info-card">
+      <p class="info-label">Intensidad</p>
       <div class="flex gap-1 mt-1">
         ${Array.from({length:10},(_,i)=>`<div class="h-2 flex-1 rounded-full ${i < (ruler.intensidad||0) ? "bg-indigo-500" : "bg-white/10"}"></div>`).join("")}
       </div>
     </div>
-    <div class="bg-white/5 rounded-xl p-4">
-      <p class="text-xs text-slate-400 mb-1">Resumen</p>
+    <div class="info-card">
+      <p class="info-label">Resumen</p>
       <p class="text-sm text-slate-300 italic">${ruler.resumen || "—"}</p>
     </div>
-    ${ruler.pensamientos?.length ? `<div class="bg-white/5 rounded-xl p-4"><p class="text-xs text-slate-400 mb-2">Pensamientos</p>${ruler.pensamientos.map(t=>`<p class="text-sm text-slate-300">• ${t}</p>`).join("")}</div>` : ""}
+    ${ruler.pensamientos?.length ? `<div class="info-card"><p class="info-label mb-2">Pensamientos</p>${ruler.pensamientos.map(t=>`<p class="text-sm text-slate-300">• ${t}</p>`).join("")}</div>` : ""}
   `;
 }
 
-// ─── SAVE / DISCARD ───────────────────────────────────────────────────────────
-document.getElementById("btn-save").addEventListener("click", async () => {
-  if (!state.rulerResult) return;
-  // Entry already saved via /api/entry — just navigate home
-  resetRecordState();
-  showScreen("mood");
-});
-
-document.getElementById("btn-discard").addEventListener("click", () => {
+// ─── CONFIRM ──────────────────────────────────────────────────────────────────
+// El registro ya quedó guardado por /api/entry — esta pantalla es informativa.
+document.getElementById("btn-confirm-done").addEventListener("click", () => {
   resetRecordState();
   showScreen("mood");
 });
@@ -206,10 +363,12 @@ document.getElementById("btn-discard").addEventListener("click", () => {
 function resetRecordState() {
   state.audioBlob = null;
   state.rulerResult = null;
-  document.getElementById("transcription-box").classList.add("hidden");
-  document.getElementById("btn-analyze").classList.add("hidden");
-  document.getElementById("btn-analyze").disabled = false;
-  recordStatus.textContent = "Listo";
+  toggleMode = false;
+  const box = document.getElementById("transcription-box");
+  box.classList.add("hidden");
+  box.textContent = "";
+  recordBtn.classList.remove("recording", "toggle");
+  recordStatus.textContent = "Toca o mantén presionado para hablar";
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
@@ -218,9 +377,10 @@ async function loadHistory() {
   container.innerHTML = `<div class="spinner mx-auto mt-8"></div>`;
   try {
     const res = await fetch(`${API}/api/history?limit=30`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (!data.entries?.length) {
-      container.innerHTML = `<p class="text-slate-500 text-center mt-8">Sin registros aún.</p>`;
+      container.innerHTML = `<p class="empty-state">Aún no hay registros.<br/>Tu primer momento aparecerá aquí.</p>`;
       return;
     }
     container.innerHTML = data.entries.map(e => `
@@ -230,14 +390,14 @@ async function loadHistory() {
             <span class="font-medium text-white">${e.emocion_primaria || "—"}</span>
             ${e.emociones_secundarias ? `<span class="text-xs text-slate-400 ml-2">${Array.isArray(e.emociones_secundarias) ? e.emociones_secundarias.join(", ") : e.emociones_secundarias}</span>` : ""}
           </div>
-          <span class="text-xs text-slate-500">${formatDate(e.saved_at)}</span>
+          <span class="text-xs text-slate-400">${formatDate(e.saved_at)}</span>
         </div>
         <p class="text-sm text-slate-400 mt-1">${e.resumen || ""}</p>
         ${e.disparador ? `<p class="text-xs text-slate-500 mt-1">↳ ${e.disparador}</p>` : ""}
       </div>
     `).join("");
   } catch (err) {
-    container.innerHTML = `<p class="text-red-400 text-center mt-8">Error cargando historial</p>`;
+    container.innerHTML = `<p class="error-state">No se pudo cargar el historial.</p>`;
   }
 }
 
@@ -253,6 +413,7 @@ async function loadPatterns() {
   container.innerHTML = `<div class="spinner mx-auto mt-8"></div>`;
   try {
     const res = await fetch(`${API}/api/patterns`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
     const moodColors = { rojo: "#ef4444", amarillo: "#eab308", azul: "#3b82f6", verde: "#22c55e" };
@@ -260,51 +421,51 @@ async function loadPatterns() {
     const total = moodEntries.reduce((s, [,v]) => s + v, 0);
 
     container.innerHTML = `
-      <!-- Mini mood meter -->
-      <div class="bg-white/5 rounded-xl p-4">
-        <h3 class="text-sm font-medium text-slate-300 mb-3">Distribución emocional</h3>
+      <div class="info-card">
+        <h3 class="text-sm font-semibold text-slate-200 mb-3">Distribución emocional</h3>
         ${moodEntries.length ? moodEntries.map(([q, count]) => `
           <div class="flex items-center gap-2 mb-2">
             <span class="text-xs w-16 text-slate-400 capitalize">${q}</span>
             <div class="flex-1 bg-white/5 rounded-full h-2">
-              <div class="h-2 rounded-full" style="width:${Math.round(count/total*100)}%;background:${moodColors[q]||'#6366f1'}"></div>
+              <div class="h-2 rounded-full" style="width:${total ? Math.round(count/total*100) : 0}%;background:${moodColors[q]||'#6366f1'}"></div>
             </div>
-            <span class="text-xs text-slate-500">${count}</span>
-          </div>`).join("") : `<p class="text-slate-500 text-sm">Sin datos aún</p>`}
+            <span class="text-xs text-slate-400">${count}</span>
+          </div>`).join("") : `<p class="text-slate-400 text-sm">Sin datos aún</p>`}
       </div>
 
-      <!-- Top words -->
-      <div class="bg-white/5 rounded-xl p-4">
-        <h3 class="text-sm font-medium text-slate-300 mb-3">Emociones más frecuentes</h3>
+      <div class="info-card">
+        <h3 class="text-sm font-semibold text-slate-200 mb-3">Emociones más frecuentes</h3>
         <div class="flex flex-wrap gap-2">
-          ${(data.palabras_frecuentes || []).map(w => `<span class="emotion-chip text-xs">${w}</span>`).join("") || `<p class="text-slate-500 text-sm">Sin datos aún</p>`}
+          ${(data.palabras_frecuentes || []).map(w => `<span class="emotion-chip emotion-chip-sm">${w}</span>`).join("") || `<p class="text-slate-400 text-sm">Sin datos aún</p>`}
         </div>
       </div>
 
-      <!-- Pattern -->
-      <div class="bg-white/5 rounded-xl p-4">
-        <h3 class="text-sm font-medium text-slate-300 mb-2">Patrón detectado</h3>
+      <div class="info-card">
+        <h3 class="text-sm font-semibold text-slate-200 mb-2">Patrón detectado</h3>
         <p class="text-sm text-slate-400">${data.patron_detectado || "—"}</p>
       </div>
     `;
   } catch (err) {
-    container.innerHTML = `<p class="text-red-400 text-center mt-8">Error cargando patrones</p>`;
+    container.innerHTML = `<p class="error-state">No se pudieron cargar los patrones.</p>`;
   }
 }
 
 // ─── CHAT ─────────────────────────────────────────────────────────────────────
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
+const btnSendChat = document.getElementById("btn-send-chat");
 
-document.getElementById("btn-send-chat").addEventListener("click", sendChat);
+btnSendChat.addEventListener("click", sendChat);
 chatInput.addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
 
 async function sendChat() {
   const q = chatInput.value.trim();
   if (!q) return;
   chatInput.value = "";
+  btnSendChat.disabled = true;
   appendBubble(q, "user");
-  const thinking = appendBubble("...", "ai");
+  const thinking = appendBubble("…", "ai");
+  thinking.classList.add("bubble-thinking");
 
   try {
     const res = await fetch(`${API}/api/chat`, {
@@ -312,16 +473,21 @@ async function sendChat() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: q }),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    thinking.classList.remove("bubble-thinking");
     thinking.textContent = data.answer || "No pude responder.";
   } catch {
+    thinking.classList.remove("bubble-thinking");
     thinking.textContent = "Error de conexión.";
+  } finally {
+    btnSendChat.disabled = false;
   }
 }
 
 function appendBubble(text, role) {
   const div = document.createElement("div");
-  div.className = `p-3 max-w-xs text-sm ${role === "user" ? "bubble-user self-end ml-auto" : "bubble-ai self-start"} text-white`;
+  div.className = `chat-bubble ${role === "user" ? "bubble-user self-end ml-auto" : "bubble-ai self-start"}`;
   div.textContent = text;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -329,11 +495,32 @@ function appendBubble(text, role) {
 }
 
 // ─── CRISIS MODAL ─────────────────────────────────────────────────────────────
+let crisisLastFocus = null;
+
 function showCrisisModal() {
   const modal = document.getElementById("crisis-modal");
-  modal.style.display = "flex";
+  crisisLastFocus = document.activeElement;
+  modal.classList.add("visible");
+  document.getElementById("btn-close-crisis").focus();
+  document.addEventListener("keydown", onCrisisKeydown);
 }
 
-document.getElementById("btn-close-crisis").addEventListener("click", () => {
-  document.getElementById("crisis-modal").style.display = "none";
-});
+function closeCrisisModal() {
+  const modal = document.getElementById("crisis-modal");
+  modal.classList.remove("visible");
+  document.removeEventListener("keydown", onCrisisKeydown);
+  if (crisisLastFocus && typeof crisisLastFocus.focus === "function") crisisLastFocus.focus();
+}
+
+// Cierra con Escape y atrapa el foco dentro del modal (Tab cíclico).
+function onCrisisKeydown(e) {
+  if (e.key === "Escape") { closeCrisisModal(); return; }
+  if (e.key !== "Tab") return;
+  const f = document.getElementById("crisis-modal").querySelectorAll('a[href], button');
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+document.getElementById("btn-close-crisis").addEventListener("click", closeCrisisModal);

@@ -1,6 +1,14 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import time
+from contextlib import asynccontextmanager
+
+from logging_config import DEV_MODE, get_logger, setup_logging
+
+setup_logging()
+_log = get_logger("api")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,7 +18,26 @@ from routes import audio, emotion, history, chat
 class UTF8JSONResponse(JSONResponse):
     media_type = "application/json; charset=utf-8"
 
-app = FastAPI(title="Mirror API", default_response_class=UTF8JSONResponse)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Calienta el motor STT al arrancar: la primera carga del modelo en CoreML
+    # es lenta. Pagar ese costo aquí evita que la primera grabación real del
+    # usuario se pase del STT_TIMEOUT.
+    try:
+        from services.audio_pipeline import warmup
+        warmup()
+        print("[startup] STT warm-up completado.", flush=True)
+    except Exception as exc:  # noqa: BLE001 - el warm-up nunca debe tumbar el arranque
+        print(f"[startup] STT warm-up omitido: {exc}", flush=True)
+    yield
+
+
+app = FastAPI(
+    title="Mirror API",
+    default_response_class=UTF8JSONResponse,
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,6 +45,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if DEV_MODE:
+    @app.middleware("http")
+    async def _log_requests(request, call_next):
+        start = time.perf_counter()
+        response = await call_next(request)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        _log.info(
+            "%s %s → %s (%.0f ms)",
+            request.method, request.url.path, response.status_code, elapsed_ms,
+        )
+        return response
 
 app.include_router(audio.router, prefix="/api")
 app.include_router(emotion.router, prefix="/api")
