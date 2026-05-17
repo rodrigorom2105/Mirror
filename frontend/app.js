@@ -224,6 +224,7 @@ document.getElementById("btn-text-continue").addEventListener("click", () => {
 
 async function analyzeText(text) {
   state.pendingText = text;
+  state.inputMode = "texto";
   startAnalyzingCopy();
   showScreen("analyzing");
   setOrbColor(state.selectedQuadrant);
@@ -681,10 +682,14 @@ async function loadHistory() {
     container.querySelectorAll(".entry-card").forEach(card => {
       card.addEventListener("click", () => {
         const entry = data.entries[Number(card.dataset.idx)];
-        const fb = entry.feedback_mensaje
-          ? `<div class="info-card"><p class="info-label">Lo que te dijo Mira</p><p class="text-sm t-soft">${escapeHTML(entry.feedback_mensaje)}</p></div>`
-          : "";
-        openDrawer(entry.emocion_primaria || "Registro", rulerDetailHTML(entry) + fb);
+        let extra = "";
+        if (entry.feedback_mensaje) {
+          extra = `<div class="info-card"><p class="info-label">Lo que te dijo Mira</p>`
+            + `<p class="text-sm t-soft">${escapeHTML(entry.feedback_mensaje)}</p></div>`
+            + reactionControlHTML(entry.feedback_reaccion || "");
+        }
+        openDrawer(entry.emocion_primaria || "Registro", rulerDetailHTML(entry) + extra);
+        if (entry.feedback_mensaje && entry.id) wireDrawerReaction(entry.id);
       });
     });
   } catch (err) {
@@ -875,6 +880,46 @@ function rulerDetailHTML(ruler) {
     </div>
     ${pens.length ? `<div class="info-card"><p class="info-label mb-2">Pensamientos</p>${pens.map(t => `<p class="text-sm t-soft">• ${escapeHTML(t)}</p>`).join("")}</div>` : ""}
   `;
+}
+
+/** Control "¿Te ayudó?" para el detalle del historial. `current` = me_ayudo|no_me_ayudo|"" */
+function reactionControlHTML(current) {
+  const on = r => (current === r ? " active" : "");
+  return `
+    <div class="feedback-rating" id="drawer-rating">
+      <span class="feedback-rating-q">¿Te ayudó este mensaje?</span>
+      <div class="feedback-rating-btns">
+        <button class="rate-btn${on("me_ayudo")}" data-r="me_ayudo" type="button" aria-label="Sí, me ayudó">
+          <i data-lucide="thumbs-up" aria-hidden="true"></i>
+        </button>
+        <button class="rate-btn${on("no_me_ayudo")}" data-r="no_me_ayudo" type="button" aria-label="No me ayudó">
+          <i data-lucide="thumbs-down" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>`;
+}
+
+/** Cablea el control de reacción del drawer a POST /api/feedback/reaction. */
+function wireDrawerReaction(entryId) {
+  const rating = document.getElementById("drawer-rating");
+  if (!rating) return;
+  rating.querySelectorAll(".rate-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      // Toggle: tocar el botón activo limpia la reacción.
+      const reaccion = btn.classList.contains("active") ? "" : btn.dataset.r;
+      rating.querySelectorAll(".rate-btn").forEach(b => b.classList.remove("active"));
+      if (reaccion) btn.classList.add("active");
+      try {
+        await fetch(`${API}/api/feedback/reaction`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entry_id: entryId, reaccion }),
+        });
+      } catch (err) {
+        console.error("No se pudo registrar la reacción", err);
+      }
+    });
+  });
 }
 
 // ─── CRISIS MODAL ─────────────────────────────────────────────────────────────
