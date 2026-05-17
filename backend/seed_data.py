@@ -2,6 +2,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("CHROMA_PATH", "./data/chroma_db")
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 from services.memory_service import save_entry
 from datetime import datetime, timedelta
@@ -37,7 +38,7 @@ def main():
         offset = timedelta(days=days_ago, hours=random.randint(8, 22))
         e["saved_at"] = (datetime.utcnow() - offset).isoformat()
         e["crisis_flag"] = False
-        entry_id = save_entry(e)
+        entry_id, _ = save_entry(e)
         print(f"  [{i+1}/{len(ENTRIES)}] {e['emocion_primaria']} ({e['cuadrante']}) → {entry_id[:8]}")
     print(f"\nListo. {len(ENTRIES)} entradas cargadas en ChromaDB.")
 
