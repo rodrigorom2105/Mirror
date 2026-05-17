@@ -74,5 +74,26 @@ app.include_router(chat.router, prefix="/api")
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
 
 if __name__ == "__main__":
+    import argparse
+    import os
     import uvicorn
+
+    # Modelos de transcripción de voz disponibles (WhisperKit, el motor por
+    # defecto en macOS), ordenados de más rápido/ligero a más preciso/pesado.
+    _STT_MODELS = ["tiny", "base", "small", "large-v2", "large-v3",
+                   "large-v3-turbo", "distil-large-v3"]
+    parser = argparse.ArgumentParser(description="Servidor de Mirror.")
+    parser.add_argument(
+        "--stt-model", choices=_STT_MODELS, metavar="MODELO",
+        help="Modelo de transcripción de voz. Opciones: "
+             + ", ".join(_STT_MODELS) + ". Por defecto: el de .env.",
+    )
+    args = parser.parse_args()
+    if args.stt_model:
+        # Se exporta al entorno antes de arrancar; services/stt lo lee al
+        # construir el transcriptor. load_dotenv() no lo sobreescribe.
+        os.environ["WHISPERKIT_MODEL"] = args.stt_model
+        os.environ["FASTER_WHISPER_MODEL"] = args.stt_model
+        print(f"[startup] Modelo STT por flag: {args.stt_model}", flush=True)
+
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
