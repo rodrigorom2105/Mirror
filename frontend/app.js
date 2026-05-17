@@ -334,28 +334,28 @@ document.getElementById("btn-analyzing-back").addEventListener("click", () => {
 // ─── RULER DISPLAY ────────────────────────────────────────────────────────────
 function renderRulerDisplay(ruler) {
   const container = document.getElementById("ruler-display");
-  const colorMap = { rojo: "text-red-300", amarillo: "text-yellow-300", azul: "text-blue-300", verde: "text-green-300" };
+  const colorMap = { rojo: "q-rojo", amarillo: "q-amarillo", azul: "q-azul", verde: "q-verde" };
   container.innerHTML = `
     <div class="info-card">
       <p class="info-label">Emoción principal</p>
       <p class="text-lg font-bold ${colorMap[ruler.cuadrante] || ''}">${ruler.emocion_primaria || ""}</p>
-      ${ruler.emociones_secundarias?.length ? `<p class="text-xs text-slate-400 mt-1">${ruler.emociones_secundarias.join(", ")}</p>` : ""}
+      ${ruler.emociones_secundarias?.length ? `<p class="text-xs t-dim mt-1">${ruler.emociones_secundarias.join(", ")}</p>` : ""}
     </div>
     <div class="info-card">
       <p class="info-label">Disparador</p>
-      <p class="text-sm text-white">${ruler.disparador || "—"}</p>
+      <p class="text-sm t-strong">${ruler.disparador || "—"}</p>
     </div>
     <div class="info-card">
       <p class="info-label">Intensidad</p>
       <div class="flex gap-1 mt-1">
-        ${Array.from({length:10},(_,i)=>`<div class="h-2 flex-1 rounded-full ${i < (ruler.intensidad||0) ? "bg-indigo-500" : "bg-white/10"}"></div>`).join("")}
+        ${Array.from({length:10},(_,i)=>`<div class="h-2 flex-1 rounded-full ${i < (ruler.intensidad||0) ? "bg-indigo-500" : "track"}"></div>`).join("")}
       </div>
     </div>
     <div class="info-card">
       <p class="info-label">Resumen</p>
-      <p class="text-sm text-slate-300 italic">${ruler.resumen || "—"}</p>
+      <p class="text-sm t-soft italic">${ruler.resumen || "—"}</p>
     </div>
-    ${ruler.pensamientos?.length ? `<div class="info-card"><p class="info-label mb-2">Pensamientos</p>${ruler.pensamientos.map(t=>`<p class="text-sm text-slate-300">• ${t}</p>`).join("")}</div>` : ""}
+    ${ruler.pensamientos?.length ? `<div class="info-card"><p class="info-label mb-2">Pensamientos</p>${ruler.pensamientos.map(t=>`<p class="text-sm t-soft">• ${t}</p>`).join("")}</div>` : ""}
   `;
 }
 
@@ -441,13 +441,13 @@ async function loadHistory() {
       <div class="entry-card ${e.cuadrante || 'azul'}">
         <div class="flex justify-between items-start">
           <div>
-            <span class="font-medium text-white">${e.emocion_primaria || "—"}</span>
-            ${e.emociones_secundarias ? `<span class="text-xs text-slate-400 ml-2">${Array.isArray(e.emociones_secundarias) ? e.emociones_secundarias.join(", ") : e.emociones_secundarias}</span>` : ""}
+            <span class="font-medium t-strong">${e.emocion_primaria || "—"}</span>
+            ${e.emociones_secundarias ? `<span class="text-xs t-dim ml-2">${Array.isArray(e.emociones_secundarias) ? e.emociones_secundarias.join(", ") : e.emociones_secundarias}</span>` : ""}
           </div>
-          <span class="text-xs text-slate-400">${formatDate(e.saved_at)}</span>
+          <span class="text-xs t-dim">${formatDate(e.saved_at)}</span>
         </div>
-        <p class="text-sm text-slate-400 mt-1">${e.resumen || ""}</p>
-        ${e.disparador ? `<p class="text-xs text-slate-500 mt-1">↳ ${e.disparador}</p>` : ""}
+        <p class="text-sm t-dim mt-1">${e.resumen || ""}</p>
+        ${e.disparador ? `<p class="text-xs t-faint mt-1">↳ ${e.disparador}</p>` : ""}
       </div>
     `).join("");
   } catch (err) {
@@ -470,40 +470,40 @@ async function loadPatterns() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    const moodColors = { rojo: "#ef4444", amarillo: "#eab308", azul: "#3b82f6", verde: "#22c55e" };
+    const moodColors = { rojo: "#C2553B", amarillo: "#B0852A", azul: "#4E6E88", verde: "#557A58" };
     const moodEntries = Object.entries(data.mini_mood_meter || {});
     const total = moodEntries.reduce((s, [,v]) => s + v, 0);
 
     container.innerHTML = `
       <div class="info-card">
-        <h3 class="text-sm font-semibold text-slate-200 mb-3">Distribución emocional</h3>
+        <h3 class="text-sm font-semibold t-strong mb-3">Distribución emocional</h3>
         ${moodEntries.length ? moodEntries.map(([q, count]) => `
           <div class="flex items-center gap-2 mb-2">
-            <span class="text-xs w-16 text-slate-400 capitalize">${q}</span>
-            <div class="flex-1 bg-white/5 rounded-full h-2">
-              <div class="h-2 rounded-full" style="width:${total ? Math.round(count/total*100) : 0}%;background:${moodColors[q]||'#6366f1'}"></div>
+            <span class="text-xs w-16 t-dim capitalize">${q}</span>
+            <div class="flex-1 track rounded-full h-2">
+              <div class="h-2 rounded-full" style="width:${total ? Math.round(count/total*100) : 0}%;background:${moodColors[q]||'#5B53C9'}"></div>
             </div>
-            <span class="text-xs text-slate-400">${count}</span>
-          </div>`).join("") : `<p class="text-slate-400 text-sm">Sin datos aún</p>`}
+            <span class="text-xs t-dim">${count}</span>
+          </div>`).join("") : `<p class="t-dim text-sm">Sin datos aún</p>`}
       </div>
 
       <div class="info-card">
-        <h3 class="text-sm font-semibold text-slate-200 mb-3">Emociones más frecuentes</h3>
+        <h3 class="text-sm font-semibold t-strong mb-3">Emociones más frecuentes</h3>
         <div class="flex flex-wrap gap-2">
-          ${(data.palabras_frecuentes || []).map(w => `<span class="emotion-chip emotion-chip-sm">${w}</span>`).join("") || `<p class="text-slate-400 text-sm">Sin datos aún</p>`}
+          ${(data.palabras_frecuentes || []).map(w => `<span class="emotion-chip emotion-chip-sm">${w}</span>`).join("") || `<p class="t-dim text-sm">Sin datos aún</p>`}
         </div>
       </div>
 
       ${(data.insights && data.insights.length) ? `
       <div class="info-card">
-        <h3 class="text-sm font-semibold text-slate-200 mb-3">Lo que Mirror nota</h3>
+        <h3 class="text-sm font-semibold t-strong mb-3">Lo que Mirror nota</h3>
         ${data.insights.map(i => `<p class="insight-line">${i.texto}</p>`).join("")}
       </div>` : ""}
 
       <div class="info-card">
-        <h3 class="text-sm font-semibold text-slate-200 mb-2">Patrón detectado</h3>
-        <p class="text-sm text-slate-400">${data.patron_detectado || "—"}</p>
-        ${data.racha_registro ? `<p class="text-xs text-slate-500 mt-2">Llevas ${data.racha_registro} día(s) seguidos registrando.</p>` : ""}
+        <h3 class="text-sm font-semibold t-strong mb-2">Patrón detectado</h3>
+        <p class="text-sm t-dim">${data.patron_detectado || "—"}</p>
+        ${data.racha_registro ? `<p class="text-xs t-faint mt-2">Llevas ${data.racha_registro} día(s) seguidos registrando.</p>` : ""}
       </div>
     `;
   } catch (err) {
