@@ -15,7 +15,7 @@
   --surface-2: #F1E9D8;
   --border: rgba(120, 100, 70, 0.16);
   --text: #4A4338;
-  --text-dim: #9A9082;
+  --text-dim: #6E665C;
   --tab-h: 68px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
@@ -67,7 +67,7 @@ body {
 .t-strong { color: var(--text); }
 .t-soft   { color: #6A6356; }
 .t-dim    { color: var(--text-dim); }
-.t-faint  { color: #B3A994; }
+.t-faint  { color: var(--text-dim); }
 .q-rojo     { color: var(--red); }
 .q-amarillo { color: var(--yellow); }
 .q-azul     { color: var(--blue); }
@@ -149,8 +149,8 @@ body {
   font-size: 0;
   color: transparent;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 30%, #a5b4fc 0%, #6366f1 55%, #4338ca 100%);
-  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.45);
+  background: radial-gradient(circle at 38% 30%, #7D72D6 0%, #5B53C9 55%, #3F3895 100%);
+  box-shadow: 0 8px 30px rgba(91, 83, 201, 0.4);
 }
 
 @keyframes miraEnter {
@@ -864,7 +864,7 @@ body {
   width: 4px; height: 4px;
   border-radius: 50%;
   background: var(--indigo);
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.9);
+  box-shadow: 0 0 8px rgba(91, 83, 201, 0.9);
   animation: dotIn 0.3s var(--ease-spring);
 }
 @keyframes dotIn {
@@ -994,7 +994,7 @@ body {
 .companion-mira.img-missing {
   border-radius: 50%;
   font-size: 0;
-  background: radial-gradient(circle at 38% 30%, #a5b4fc, #6366f1 60%, #4338ca);
+  background: radial-gradient(circle at 38% 30%, #7D72D6, #5B53C9 60%, #3F3895);
 }
 .companion-bubble p {
   margin: 0;
