@@ -109,6 +109,29 @@ def _build_evidence(ruler: dict, modo: str, client_time) -> str:
         lines.append(f"RESUMEN: {ruler['resumen']}")
     lines.append(f"MOMENTO: {franja}, {dia}")
 
+    # Contexto del perfil: tendencia reciente, disparadores y síntesis narrativa.
+    try:
+        perfil = get_profile()
+        tr = perfil.get("tendencia_reciente", {})
+        cuad_dom = tr.get("cuadrante_dominante")
+        if cuad_dom:
+            lines.append(f"TENDENCIA RECIENTE: cuadrante dominante {cuad_dom} "
+                         f"(valencia {tr.get('valencia', 0):.2f})")
+
+        disp_top = sorted(
+            perfil.get("disparadores_recurrentes", {}).items(),
+            key=lambda kv: kv[1], reverse=True
+        )[:3]
+        disp_str = "; ".join(k for k, _ in disp_top if k)
+        if disp_str:
+            lines.append(f"DISPARADORES RECURRENTES DEL USUARIO: {disp_str}")
+
+        sintesis = (perfil.get("sintesis_narrativa") or "").strip()
+        if sintesis:
+            lines.append(f"PERFIL NARRATIVO: {sintesis}")
+    except Exception:  # noqa: BLE001
+        pass
+
     try:
         fuentes = get_wellbeing_sources(5)
         conocidas = []
@@ -165,7 +188,7 @@ def generate_entry_feedback(ruler: dict, selected_emotion: str,
         from services.llm_service import _load_prompt, _ollama_generate
         system = _load_prompt("entry_feedback.txt")
         evidence = _build_evidence(ruler, modo, client_time)
-        mensaje = _ollama_generate(system, evidence, temperature=0.7,
+        mensaje = _ollama_generate(system, evidence, temperature=0.35,
                                    num_predict=180).strip()
         if not mensaje:
             mensaje = _FALLBACK
