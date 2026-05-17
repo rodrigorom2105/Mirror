@@ -159,7 +159,7 @@ def generate_entry_feedback(ruler: dict, selected_emotion: str,
         from services.llm_service import _load_prompt, _ollama_generate
         system = _load_prompt("entry_feedback.txt")
         evidence = _build_evidence(ruler, modo, client_time)
-        mensaje = _ollama_generate(system, evidence, temperature=0.7,
+        mensaje = _ollama_generate(system, evidence, temperature=0.35,
                                    num_predict=180).strip()
         if not mensaje:
             mensaje = _FALLBACK
