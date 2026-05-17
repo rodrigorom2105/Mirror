@@ -245,3 +245,39 @@ def compute_patterns() -> dict:
         "palabras_frecuentes": top_words,
         "patron_detectado": patron,
     }
+
+
+def get_helpful_feedback_examples(n: int = 2) -> list:
+    """Mensajes de feedback que el usuario marcó como útiles, más recientes."""
+    try:
+        result = _collection.get(
+            where={"feedback_reaccion": {"$eq": "me_ayudo"}},
+            include=["metadatas"],
+        )
+    except Exception:  # noqa: BLE001 - los ejemplos son un extra, nunca crítico
+        return []
+    rows = []
+    for meta in (result.get("metadatas") or []):
+        msg = meta.get("feedback_mensaje")
+        if msg:
+            rows.append((meta.get("ts") or 0.0, msg))
+    rows.sort(key=lambda r: r[0], reverse=True)
+    return [m for _, m in rows[:n]]
+
+
+def set_feedback_reaction(entry_id: str, reaccion: str) -> bool:
+    """Actualiza `feedback_reaccion` en la metadata de una entrada guardada."""
+    try:
+        existing = _collection.get(ids=[entry_id], include=["metadatas"])
+    except Exception:  # noqa: BLE001 - la reacción es un extra, no crítica
+        return False
+    metas = existing.get("metadatas") or []
+    if not metas or metas[0] is None:
+        return False
+    meta = dict(metas[0])
+    meta["feedback_reaccion"] = reaccion
+    try:
+        _collection.update(ids=[entry_id], metadatas=[meta])
+    except Exception:  # noqa: BLE001 - la reacción es un extra, no crítica
+        return False
+    return True

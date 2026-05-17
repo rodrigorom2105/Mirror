@@ -65,3 +65,34 @@ def test_select_mode_boundary_at_5():
     # El umbral es estricto (> 5): 5 es ligero, 5.1 es apoyo.
     assert select_mode({"cuadrante": "rojo", "intensidad": 5}) == "ligero"
     assert select_mode({"cuadrante": "rojo", "intensidad": 5.1}) == "apoyo"
+
+
+def test_generate_entry_feedback_returns_message_and_mode(monkeypatch):
+    import services.entry_feedback as ef
+
+    monkeypatch.setattr(ef, "_build_evidence", lambda *a, **k: "EVIDENCIA")
+
+    import services.llm_service as llm
+    monkeypatch.setattr(llm, "_ollama_generate",
+                        lambda system, user, **k: "Te acompaño en esto.")
+
+    out = ef.generate_entry_feedback(
+        {"cuadrante": "rojo", "intensidad": 8, "emocion_primaria": "ansioso"},
+        "ansioso", "2026-05-17T21:00:00-06:00")
+    assert out["modo"] == "apoyo"
+    assert out["mensaje"] == "Te acompaño en esto."
+
+
+def test_generate_entry_feedback_never_raises(monkeypatch):
+    import services.entry_feedback as ef
+    import services.llm_service as llm
+
+    def boom(*a, **k):
+        raise RuntimeError("LLM caído")
+    monkeypatch.setattr(llm, "_ollama_generate", boom)
+    monkeypatch.setattr(ef, "_build_evidence", lambda *a, **k: "EVIDENCIA")
+
+    out = ef.generate_entry_feedback(
+        {"cuadrante": "verde", "intensidad": 3}, "tranquilo", None)
+    assert out["modo"] == "ligero"
+    assert out["mensaje"] == ef._FALLBACK  # mensaje de respaldo cálido

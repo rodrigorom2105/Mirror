@@ -73,3 +73,73 @@ def select_mode(ruler: dict) -> str:
     if cuad in _CUADRANTES_NEGATIVOS and intensidad > 5:
         return "apoyo"
     return "ligero"
+
+
+# ─── Generación del feedback (LLM) ────────────────────────────────────────
+
+_FALLBACK = ("Gracias por registrar cómo te sientes. "
+             "Tomarte este momento ya es una forma de cuidarte.")
+
+
+def _build_evidence(ruler: dict, modo: str, client_time) -> str:
+    """Arma el bloque de evidencia estructurada para el prompt del feedback."""
+    from services.memory_service import get_helpful_feedback_examples
+    from services.profile_service import get_wellbeing_sources
+
+    franja, dia = franja_horaria(client_time)
+    lines = [
+        f"MODO: {modo}",
+        f"EMOCIÓN: {ruler.get('emocion_primaria', '?')} "
+        f"(cuadrante {ruler.get('cuadrante', '?')}, "
+        f"intensidad {ruler.get('intensidad', '?')}/10)",
+    ]
+    if ruler.get("disparador"):
+        lines.append(f"DISPARADOR: {ruler['disparador']}")
+    if ruler.get("resumen"):
+        lines.append(f"RESUMEN: {ruler['resumen']}")
+    lines.append(f"MOMENTO: {franja}, {dia}")
+
+    try:
+        fuentes = get_wellbeing_sources(5)
+        conocidas = []
+        for cat in ("actividades", "lugares", "personas"):
+            conocidas.extend(fuentes.get(cat, []))
+    except Exception:  # noqa: BLE001
+        conocidas = []
+    if conocidas:
+        lines.append("COSAS QUE YA LE HAN HECHO BIEN (sugiere solo estas, "
+                     "nunca inventes): " + "; ".join(conocidas))
+    else:
+        lines.append("COSAS QUE YA LE HAN HECHO BIEN: sin datos — no "
+                     "recomiendes actividades, solo acompaña con calidez.")
+
+    try:
+        ejemplos = get_helpful_feedback_examples(2)
+    except Exception:  # noqa: BLE001
+        ejemplos = []
+    if ejemplos:
+        lines.append("MENSAJES QUE ANTES LE AYUDARON (inspírate en su tono):")
+        for m in ejemplos:
+            lines.append(f"- {m}")
+    return "\n".join(lines)
+
+
+def generate_entry_feedback(ruler: dict, selected_emotion: str,
+                            client_time) -> dict:
+    """Genera el feedback contextual de Mira para una entrada recién analizada.
+
+    Devuelve {'mensaje': str, 'modo': 'apoyo'|'ligero'}. Nunca lanza: ante
+    cualquier fallo del LLM devuelve un mensaje de respaldo cálido.
+    """
+    modo = select_mode(ruler)
+    try:
+        from services.llm_service import _load_prompt, _ollama_generate
+        system = _load_prompt("entry_feedback.txt")
+        evidence = _build_evidence(ruler, modo, client_time)
+        mensaje = _ollama_generate(system, evidence, temperature=0.7,
+                                   num_predict=180).strip()
+        if not mensaje:
+            mensaje = _FALLBACK
+    except Exception:  # noqa: BLE001 - el feedback nunca debe romper el análisis
+        mensaje = _FALLBACK
+    return {"mensaje": mensaje, "modo": modo}
