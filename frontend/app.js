@@ -36,6 +36,7 @@ let state = {
   selectedEmotion: null,
   audioBlob: null,
   rulerResult: null,
+  inputMode: "voz",
 };
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
@@ -118,6 +119,7 @@ let audioCtx = null;
 let recordStartTime = 0;
 let pointerIsDown = false;
 let toggleMode = false;
+let recordTimerInterval = null;
 
 const TAP_THRESHOLD_MS = 350;  // por debajo: fue un toque → modo manos libres
 const MIN_RECORDING_MS = 500;  // ignora toques accidentales demasiado cortos
@@ -126,6 +128,74 @@ const recordBtn = document.getElementById("record-btn");
 const recordStatus = document.getElementById("record-status");
 const waveCanvas = document.getElementById("waveform");
 const waveCtx = waveCanvas.getContext("2d");
+
+// ─── SELECTOR HABLAR / ESCRIBIR ───────────────────────────────────────────────
+const modeVoz = document.getElementById("mode-voz");
+const modeTexto = document.getElementById("mode-texto");
+const paneVoz = document.getElementById("pane-voz");
+const paneTexto = document.getElementById("pane-texto");
+
+function setInputMode(mode) {
+  state.inputMode = mode;
+  const isVoz = mode === "voz";
+  modeVoz.classList.toggle("active", isVoz);
+  modeTexto.classList.toggle("active", !isVoz);
+  modeVoz.setAttribute("aria-selected", String(isVoz));
+  modeTexto.setAttribute("aria-selected", String(!isVoz));
+  paneVoz.classList.toggle("hidden", !isVoz);
+  paneTexto.classList.toggle("hidden", isVoz);
+  if (!isVoz && mediaRecorder && mediaRecorder.state === "recording") cancelRecording();
+}
+modeVoz.addEventListener("click", () => setInputMode("voz"));
+modeTexto.addEventListener("click", () => setInputMode("texto"));
+
+// ─── TEMPORIZADOR Y BOTÓN CANCELAR ───────────────────────────────────────────
+const btnCancelRecord = document.getElementById("btn-cancel-record");
+const recordTimerEl = document.getElementById("record-timer");
+
+function startRecordTimer() {
+  recordTimerEl.classList.remove("hidden");
+  const tick = () => {
+    const s = Math.floor((Date.now() - recordStartTime) / 1000);
+    recordTimerEl.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+  tick();
+  recordTimerInterval = setInterval(tick, 250);
+}
+
+function stopRecordTimer() {
+  clearInterval(recordTimerInterval);
+  recordTimerInterval = null;
+  recordTimerEl.classList.add("hidden");
+}
+
+function cancelRecording() {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.onstop = () => releaseAudioResources();
+    mediaRecorder.stop();
+  }
+  cancelAnimationFrame(animFrame);
+  stopRecordTimer();
+  toggleMode = false;
+  audioChunks = [];
+  recordBtn.classList.remove("recording", "toggle");
+  btnCancelRecord.classList.add("hidden");
+  recordStatus.textContent = "Toca o mantén presionado para hablar";
+}
+btnCancelRecord.addEventListener("click", cancelRecording);
+
+// ─── MODO TEXTO — botón Continuar ─────────────────────────────────────────────
+document.getElementById("btn-text-continue").addEventListener("click", () => {
+  const txt = document.getElementById("text-input").value.trim();
+  if (txt.length < 3) {
+    document.getElementById("text-input").focus();
+    return;
+  }
+  analyzeText(txt); // definido en la Task 6
+});
+
+// Stub temporal hasta Task 6
+function analyzeText(t) { console.warn("analyzeText pendiente — Task 6", t); }
 
 recordBtn.addEventListener("pointerdown", e => {
   // setPointerCapture: el botón conserva el pointerup aunque el dedo
@@ -208,6 +278,8 @@ async function startRecording() {
   recordStartTime = Date.now();
 
   recordBtn.classList.add("recording");
+  btnCancelRecord.classList.remove("hidden");
+  startRecordTimer();
   recordStatus.textContent = "Grabando…";
   resizeWaveCanvas();
   drawWaveform();
@@ -218,6 +290,8 @@ function finishRecording() {
   const elapsed = Date.now() - recordStartTime;
   toggleMode = false;
   recordBtn.classList.remove("toggle");
+  stopRecordTimer();
+  btnCancelRecord.classList.add("hidden");
 
   mediaRecorder.onstop = () => {
     releaseAudioResources();
@@ -456,6 +530,10 @@ function resetRecordState() {
   box.textContent = "";
   recordBtn.classList.remove("recording", "toggle");
   recordStatus.textContent = "Toca o mantén presionado para hablar";
+  setInputMode("voz");
+  document.getElementById("text-input").value = "";
+  stopRecordTimer();
+  btnCancelRecord.classList.add("hidden");
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────

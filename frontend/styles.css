@@ -533,9 +533,10 @@ body {
   position: relative;
   flex-shrink: 0;
   touch-action: none;
-  box-shadow: 0 10px 30px rgba(91, 83, 201, 0.32);
+  box-shadow: 0 10px 30px rgba(91, 83, 201, 0.35);
   transition: transform 0.2s var(--ease-spring), background 0.25s ease;
 }
+.record-btn svg { width: 30px; height: 30px; color: #fff; }
 /* Anillo decorativo — al grabar pulsa con scale/opacity (GPU), no box-shadow */
 .record-btn::before {
   content: '';
@@ -571,6 +572,46 @@ body {
   min-height: 1.2em;
   transition: color 0.2s ease;
 }
+
+/* ─── Selector Hablar/Escribir ──────────────────────────────────────── */
+
+.mode-switch { display: inline-flex; background: var(--surface-2); border-radius: 999px;
+  padding: 4px; gap: 2px; }
+.mode-btn { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
+  background: none; color: var(--text-dim); font: inherit; font-size: 0.85rem; font-weight: 600;
+  padding: 8px 18px; border-radius: 999px; transition: background 0.2s var(--ease-soft), color 0.2s ease; }
+.mode-btn svg { width: 16px; height: 16px; }
+.mode-btn.active { background: linear-gradient(135deg, var(--indigo-light), var(--indigo));
+  color: #fff; box-shadow: 0 4px 12px rgba(91, 83, 201, 0.3); }
+
+/* ─── Paneles Hablar/Escribir ───────────────────────────────────────── */
+
+.record-pane { display: flex; flex-direction: column; align-items: center; gap: 18px;
+  width: 100%; animation: paneIn 0.32s var(--ease-soft) both; }
+@keyframes paneIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ─── Temporizador de grabación ─────────────────────────────────────── */
+
+.record-timer { font-variant-numeric: tabular-nums; font-size: 1.2rem; font-weight: 800;
+  color: var(--red); margin: 0; }
+
+/* ─── Botón Cancelar ────────────────────────────────────────────────── */
+
+.btn-cancel { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-dim); font: inherit; font-size: 0.85rem;
+  font-weight: 600; padding: 8px 18px; border-radius: 999px; cursor: pointer;
+  transition: transform 0.18s var(--ease-spring), background 0.18s ease; }
+.btn-cancel svg { width: 15px; height: 15px; }
+.btn-cancel:active { transform: scale(0.96); background: var(--surface-2); }
+
+/* ─── Textarea modo texto ───────────────────────────────────────────── */
+
+#text-input { width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 14px 16px; font: inherit; font-size: 1rem; color: var(--text);
+  resize: none; outline: none; transition: border-color 0.18s ease; }
+#text-input:focus { border-color: var(--indigo); }
+#text-input::placeholder { color: var(--text-dim); }
+#pane-texto .btn-primary { margin-top: 4px; }
 
 /* ─── Pantalla de análisis (mascota) ────────────────────────────────── */
 

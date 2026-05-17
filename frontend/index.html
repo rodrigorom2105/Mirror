@@ -79,19 +79,42 @@
 
   <!-- ─── Grabar ─────────────────────────────────────────────────────────── -->
   <div id="screen-record" class="screen">
-    <button id="btn-back-record" class="back-btn" type="button"><i data-lucide="arrow-left" aria-hidden="true"></i><span>Atrás</span></button>
-    <h2 class="sr-only" data-screen-title>Graba tu voz</h2>
+    <button id="btn-back-record" class="back-btn" type="button">
+      <i data-lucide="arrow-left" aria-hidden="true"></i><span>Atrás</span>
+    </button>
+    <h2 class="sr-only" data-screen-title>Cuéntale a Mira</h2>
 
     <div class="record-stage">
       <span id="selected-emotion-badge" class="emotion-badge"></span>
-      <canvas id="waveform" aria-hidden="true"></canvas>
-      <button id="record-btn" class="record-btn" type="button"
-        aria-label="Tocar o mantener presionado para grabar tu voz">
-        <svg width="32" height="32" fill="white" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zm-1 14.93A8 8 0 0 1 4.07 10H6a6 6 0 0 0 12 0h1.93A8 8 0 0 1 13 16.93V20h3v2H8v-2h3v-3.07z"/>
-        </svg>
-      </button>
-      <p id="record-status" class="record-status" aria-live="polite">Toca o mantén presionado para hablar</p>
+
+      <div class="mode-switch" role="tablist" aria-label="Forma de registrar">
+        <button id="mode-voz" class="mode-btn active" type="button" role="tab" aria-selected="true">
+          <i data-lucide="mic" aria-hidden="true"></i><span>Hablar</span>
+        </button>
+        <button id="mode-texto" class="mode-btn" type="button" role="tab" aria-selected="false">
+          <i data-lucide="pencil" aria-hidden="true"></i><span>Escribir</span>
+        </button>
+      </div>
+
+      <div id="pane-voz" class="record-pane">
+        <canvas id="waveform" aria-hidden="true"></canvas>
+        <p id="record-timer" class="record-timer hidden">0:00</p>
+        <button id="record-btn" class="record-btn" type="button"
+          aria-label="Tocar o mantener presionado para grabar tu voz">
+          <i data-lucide="mic" aria-hidden="true"></i>
+        </button>
+        <p id="record-status" class="record-status" aria-live="polite">Toca o mantén presionado para hablar</p>
+        <button id="btn-cancel-record" class="btn-cancel hidden" type="button">
+          <i data-lucide="x" aria-hidden="true"></i><span>Cancelar</span>
+        </button>
+      </div>
+
+      <div id="pane-texto" class="record-pane hidden">
+        <label for="text-input" class="sr-only">Escribe cómo te sientes</label>
+        <textarea id="text-input" rows="5"
+          placeholder="Escribe lo que sientes y por qué…"></textarea>
+        <button id="btn-text-continue" class="btn-primary" type="button">Continuar</button>
+      </div>
     </div>
   </div>
 
