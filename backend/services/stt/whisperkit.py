@@ -20,18 +20,22 @@ class WhisperKitTranscriber:
 
     name = "whisperkit"
 
-    def __init__(self, cli: str, model: str, timeout: int):
+    def __init__(self, cli: str, model: str, timeout: int, model_path: str = ""):
         self._cli = cli
         self._model = model
         self._timeout = timeout
+        self._model_path = model_path
 
     def transcribe(self, wav_path: str) -> TranscriptionResult:
         cmd = [
             self._cli, "transcribe",
             "--audio-path", wav_path,
-            "--model", self._model,
             "--language", "es",
         ]
+        if self._model_path:
+            cmd += ["--model-path", self._model_path]
+        else:
+            cmd += ["--model", self._model]
         try:
             proc = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=self._timeout
